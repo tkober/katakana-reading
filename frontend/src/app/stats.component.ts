@@ -93,14 +93,25 @@ import { KanaStat, Stats } from './models';
               <h3>By level</h3>
               @for (row of s.coverage.levels; track row.key) {
                 <div class="cov-row">
-                  <span class="cov-label">Level {{ row.key }}</span>
-                  <div class="cov-meter">
-                    <div
-                      class="cov-fill"
-                      [style.width.%]="(row.seen / row.total) * 100"
-                    ></div>
+                  <svg class="cov-ring" viewBox="0 0 36 36" aria-hidden="true">
+                    <circle class="ring-track" cx="18" cy="18" r="15.5" />
+                    @if (row.seen > 0) {
+                      <circle
+                        class="ring-fill"
+                        cx="18"
+                        cy="18"
+                        r="15.5"
+                        [attr.stroke-dasharray]="ringDash(row.seen, row.total)"
+                      />
+                    }
+                    <text class="ring-text" x="18" y="19">
+                      {{ (row.seen / row.total) * 100 | number: '1.0-0' }}%
+                    </text>
+                  </svg>
+                  <div class="cov-main">
+                    <span class="cov-label">Level {{ row.key }}</span>
+                    <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   </div>
-                  <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   <span class="cov-rate" [class.dim]="row.success === null">
                     {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
                   </span>
@@ -111,14 +122,25 @@ import { KanaStat, Stats } from './models';
               <h3>By dictionary</h3>
               @for (row of s.coverage.sources; track row.key) {
                 <div class="cov-row">
-                  <span class="cov-label">{{ row.key }}</span>
-                  <div class="cov-meter">
-                    <div
-                      class="cov-fill"
-                      [style.width.%]="(row.seen / row.total) * 100"
-                    ></div>
+                  <svg class="cov-ring" viewBox="0 0 36 36" aria-hidden="true">
+                    <circle class="ring-track" cx="18" cy="18" r="15.5" />
+                    @if (row.seen > 0) {
+                      <circle
+                        class="ring-fill"
+                        cx="18"
+                        cy="18"
+                        r="15.5"
+                        [attr.stroke-dasharray]="ringDash(row.seen, row.total)"
+                      />
+                    }
+                    <text class="ring-text" x="18" y="19">
+                      {{ (row.seen / row.total) * 100 | number: '1.0-0' }}%
+                    </text>
+                  </svg>
+                  <div class="cov-main">
+                    <span class="cov-label">{{ row.key }}</span>
+                    <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   </div>
-                  <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   <span class="cov-rate" [class.dim]="row.success === null">
                     {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
                   </span>
@@ -127,8 +149,8 @@ import { KanaStat, Stats } from './models';
             </div>
           </div>
           <p class="panel-note">
-            Bar = words seen at least once; percentage = success rate of all
-            answers in that group.
+            Ring = share of words seen at least once; percentage on the right =
+            success rate of all answers in that group.
           </p>
         </div>
 
@@ -256,30 +278,50 @@ import { KanaStat, Stats } from './models';
       }
       .cov-row {
         display: grid;
-        grid-template-columns: minmax(56px, auto) 1fr auto 44px;
+        grid-template-columns: auto 1fr auto;
         align-items: center;
-        gap: 10px;
-        padding: 3px 0;
+        gap: 12px;
+        padding: 5px 0;
         font-size: 13px;
       }
+      .cov-ring {
+        width: 40px;
+        height: 40px;
+      }
+      .ring-track,
+      .ring-fill {
+        fill: none;
+        stroke-width: 3.5;
+      }
+      .ring-track {
+        stroke: var(--series-1-track);
+      }
+      .ring-fill {
+        stroke: var(--series-1);
+        stroke-linecap: round;
+        transform: rotate(-90deg);
+        transform-origin: 18px 18px;
+      }
+      .ring-text {
+        fill: var(--ink);
+        font-size: 9px;
+        font-weight: 600;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+      .cov-main {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.35;
+      }
       .cov-label {
-        color: var(--ink-2);
+        color: var(--ink);
+        font-weight: 600;
         white-space: nowrap;
-      }
-      .cov-meter {
-        height: 6px;
-        border-radius: 3px;
-        background: var(--series-1-track);
-        overflow: hidden;
-        min-width: 60px;
-      }
-      .cov-fill {
-        height: 100%;
-        background: var(--series-1);
-        border-radius: 3px;
       }
       .cov-nums {
         color: var(--muted);
+        font-size: 12px;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
@@ -409,5 +451,12 @@ export class StatsComponent implements OnInit {
   /** SQLite delivers UTC "YYYY-MM-DD HH:MM:SS"; Safari needs strict ISO. */
   toIso(sqliteUtc: string): string {
     return sqliteUtc.replace(' ', 'T') + 'Z';
+  }
+
+  /** Dash pattern for the coverage ring (r=15.5 → circumference ~97.4). */
+  ringDash(seen: number, total: number): string {
+    const circumference = 2 * Math.PI * 15.5;
+    const filled = total > 0 ? (seen / total) * circumference : 0;
+    return `${filled.toFixed(2)} ${circumference.toFixed(2)}`;
   }
 }

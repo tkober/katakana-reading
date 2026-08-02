@@ -14,12 +14,14 @@ WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     DB_PATH=/data/katakana.db \
-    STATIC_DIR=/app/static
+    STATIC_DIR=/app/static \
+    WORDS_DIR=/app/words
 
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY backend/app ./app
+COPY words ./words
 COPY --from=frontend /fe/dist/browser ./static
 
 ENV PATH="/app/.venv/bin:$PATH"

@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from .kana import to_romaji, tokenize
-from .words import WORDS
+from .words import load_words
 
 START_ELO = 1000.0
 
@@ -92,7 +92,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 def seed_words(conn: sqlite3.Connection) -> None:
     """Insert new dictionary words, refresh metadata of existing ones
     (keeps the dynamically calibrated rating)."""
-    for katakana, meaning, level in WORDS:
+    for katakana, meaning, level in load_words():
         romaji = to_romaji(katakana)  # raises on invalid kana -> fails fast
         base = base_rating_for(katakana, level)
         conn.execute(

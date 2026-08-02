@@ -1,363 +1,74 @@
-"""Seed dictionary: (katakana, English meaning, difficulty level 1-5).
+"""Vocabulary loading from JSON files.
 
-Romaji is generated from the tokenizer (kana.to_romaji) at seed time, so
+Words live under <repo>/words/ (override with env WORDS_DIR):
+
+    words/
+      basic/         tracked in git — the base dictionary
+      additional/    *.json ignored by git, still baked into the Docker image
+
+Every *.json file below WORDS_DIR is a list of entries:
+
+    [{"katakana": "コーヒー", "meaning": "coffee", "level": 2}, ...]
+
+Files load in deterministic order (basic/ first, then everything else
+sorted by path); on duplicate katakana the later file wins, so additional
+files can override base entries. Romaji is never stored in the files — it
+is generated from the tokenizer at seed time (see db.seed_words), so
 dictionary and evaluation can never disagree.
-
-Levels (rough guide, ratings self-calibrate via word Elo afterwards):
-  1: short words, base kana only
-  2: long vowels (ー) and/or longer words
-  3: digraphs (キャ…) and/or sokuon (ッ)
-  4: long words combining ー/ッ/digraphs
-  5: extended katakana (ファ ティ ウェ ヴィ …)
 """
 
-WORDS: list[tuple[str, str, int]] = [
-    # ------------------------------------------------- Level 1
-    ("バス", "bus", 1),
-    ("パン", "bread", 1),
-    ("ペン", "pen", 1),
-    ("メモ", "memo / note", 1),
-    ("ガム", "chewing gum", 1),
-    ("ゼロ", "zero", 1),
-    ("ワニ", "crocodile", 1),
-    ("ピザ", "pizza", 1),
-    ("ビル", "(office) building", 1),
-    ("プロ", "pro / professional", 1),
-    ("レジ", "checkout / register", 1),
-    ("パリ", "Paris", 1),
-    ("カメラ", "camera", 1),
-    ("テレビ", "TV", 1),
-    ("バナナ", "banana", 1),
-    ("トマト", "tomato", 1),
-    ("ピアノ", "piano", 1),
-    ("ホテル", "hotel", 1),
-    ("ミルク", "milk", 1),
-    ("レモン", "lemon", 1),
-    ("メロン", "melon", 1),
-    ("パンダ", "panda", 1),
-    ("アニメ", "anime", 1),
-    ("サラダ", "salad", 1),
-    ("ワイン", "wine", 1),
-    ("ナイフ", "knife", 1),
-    ("テスト", "test", 1),
-    ("ズボン", "trousers / pants", 1),
-    ("ゴリラ", "gorilla", 1),
-    ("キウイ", "kiwi", 1),
-    ("ココア", "cocoa", 1),
-    ("クラス", "class (school)", 1),
-    ("ガラス", "glass (material)", 1),
-    ("グラス", "(drinking) glass", 1),
-    ("ドラマ", "drama / TV series", 1),
-    ("ダンス", "dance", 1),
-    ("テニス", "tennis", 1),
-    ("ラジオ", "radio", 1),
-    ("アイス", "ice cream", 1),
-    ("オレンジ", "orange", 1),
-    ("バイク", "motorbike", 1),
-    ("イタリア", "Italy", 1),
-    ("アメリカ", "America / USA", 1),
-    ("フランス", "France", 1),
-    ("ドイツ", "Germany", 1),
-    ("スペイン", "Spain", 1),
-    ("ロシア", "Russia", 1),
-    ("インド", "India", 1),
-    ("エアコン", "air conditioner", 1),
-    ("ライオン", "lion", 1),
-    ("コアラ", "koala", 1),
-    ("ペンギン", "penguin", 1),
-    ("ゴルフ", "golf", 1),
-    ("ボタン", "button", 1),
-    ("タオル", "towel", 1),
-    ("テント", "tent", 1),
-    ("ヒント", "hint", 1),
-    ("プリン", "pudding / custard", 1),
-    ("マイク", "microphone", 1),
-    ("ライス", "rice (served)", 1),
-    ("ビデオ", "video", 1),
-    ("タイヤ", "tire", 1),
-    ("ガイド", "guide", 1),
-    ("アプリ", "app", 1),
-    ("サイト", "website / site", 1),
-    ("スイス", "Switzerland", 1),
-    ("トイレ", "toilet / restroom", 1),
-    ("マウス", "(computer) mouse", 1),
-    ("アイデア", "idea", 1),
-    ("アイロン", "(clothes) iron", 1),
-    # ------------------------------------------------- Level 2
-    ("コーヒー", "coffee", 2),
-    ("ケーキ", "cake", 2),
-    ("スーパー", "supermarket", 2),
-    ("タクシー", "taxi", 2),
-    ("デパート", "department store", 2),
-    ("ノート", "notebook", 2),
-    ("カレー", "curry", 2),
-    ("ラーメン", "ramen", 2),
-    ("ビール", "beer", 2),
-    ("チーズ", "cheese", 2),
-    ("テーブル", "table", 2),
-    ("スプーン", "spoon", 2),
-    ("スポーツ", "sports", 2),
-    ("プール", "(swimming) pool", 2),
-    ("メール", "e-mail", 2),
-    ("ゲーム", "game", 2),
-    ("アパート", "apartment", 2),
-    ("スカート", "skirt", 2),
-    ("セーター", "sweater", 2),
-    ("コート", "coat", 2),
-    ("ボール", "ball", 2),
-    ("カード", "card", 2),
-    ("サービス", "service", 2),
-    ("バター", "butter", 2),
-    ("ドーナツ", "donut", 2),
-    ("ピーマン", "bell pepper", 2),
-    ("コーラ", "cola", 2),
-    ("ソース", "sauce", 2),
-    ("スープ", "soup", 2),
-    ("ステーキ", "steak", 2),
-    ("デート", "date (romantic)", 2),
-    ("カーテン", "curtain", 2),
-    ("シーツ", "(bed) sheets", 2),
-    ("ギター", "guitar", 2),
-    ("ピーナツ", "peanut", 2),
-    ("マラソン", "marathon", 2),
-    ("ハイキング", "hiking", 2),
-    ("アルバイト", "part-time job", 2),
-    ("レストラン", "restaurant", 2),
-    ("カレンダー", "calendar", 2),
-    ("エプロン", "apron", 2),
-    ("オムレツ", "omelet", 2),
-    ("プレゼント", "present / gift", 2),
-    ("スキー", "skiing", 2),
-    ("スケート", "skating", 2),
-    ("テーマ", "theme / topic", 2),
-    ("ユーモア", "humor", 2),
-    ("リーダー", "leader", 2),
-    ("ルール", "rule", 2),
-    ("ローマ", "Rome", 2),
-    ("カンガルー", "kangaroo", 2),
-    ("ヒーロー", "hero", 2),
-    ("サンダル", "sandals", 2),
-    ("マフラー", "scarf / muffler", 2),
-    ("パソコン", "PC / computer", 2),
-    ("アルバム", "album", 2),
-    ("コンビニ", "convenience store", 2),
-    ("レシート", "receipt", 2),
-    ("ハンカチ", "handkerchief", 2),
-    ("エンジン", "engine", 2),
-    ("ブレーキ", "brake", 2),
-    ("イヤホン", "earphones", 2),
-    ("キーボード", "keyboard", 2),
-    ("モニター", "monitor", 2),
-    ("プリンター", "printer", 2),
-    ("スクリーン", "screen", 2),
-    ("ビタミン", "vitamin", 2),
-    ("カロリー", "calorie", 2),
-    ("ストレス", "stress", 2),
-    ("シリーズ", "series", 2),
-    ("デザイン", "design", 2),
-    ("デザート", "dessert", 2),
-    ("ピンポン", "ping-pong", 2),
-    ("ラグビー", "rugby", 2),
-    ("リモコン", "remote control", 2),
-    ("オーブン", "oven", 2),
-    ("ミキサー", "blender / mixer", 2),
-    ("ポスター", "poster", 2),
-    ("カタログ", "catalog", 2),
-    ("カクテル", "cocktail", 2),
-    ("ウイスキー", "whisky", 2),
-    ("トンネル", "tunnel", 2),
-    ("ドライブ", "drive (for fun)", 2),
-    ("ブログ", "blog", 2),
-    ("デジタル", "digital", 2),
-    ("カメラマン", "photographer", 2),
-    ("ブラジル", "Brazil", 2),
-    ("エジプト", "Egypt", 2),
-    ("オランダ", "Netherlands", 2),
-    ("ベルリン", "Berlin", 2),
-    ("ロンドン", "London", 2),
-    ("フルーツ", "fruit", 2),
-    ("スタジオ", "studio", 2),
-    ("ウイルス", "virus", 2),
-    ("エネルギー", "energy", 2),
-    ("アレルギー", "allergy", 2),
-    ("クリスマス", "Christmas", 2),
-    ("アドバイス", "advice", 2),
-    # ------------------------------------------------- Level 3
-    ("シャワー", "shower", 3),
-    ("ジュース", "juice", 3),
-    ("チョコレート", "chocolate", 3),
-    ("シャツ", "shirt", 3),
-    ("マッチ", "match(stick)", 3),
-    ("ベッド", "bed", 3),
-    ("サッカー", "soccer / football", 3),
-    ("クッキー", "cookie", 3),
-    ("ニュース", "news", 3),
-    ("メニュー", "menu", 3),
-    ("シャンプー", "shampoo", 3),
-    ("ジャケット", "jacket", 3),
-    ("ポケット", "pocket", 3),
-    ("ロケット", "rocket", 3),
-    ("スリッパ", "slippers", 3),
-    ("ペット", "pet", 3),
-    ("カップ", "cup", 3),
-    ("コップ", "glass / tumbler", 3),
-    ("バッグ", "bag", 3),
-    ("キッチン", "kitchen", 3),
-    ("チケット", "ticket", 3),
-    ("キャンプ", "camping", 3),
-    ("キャベツ", "cabbage", 3),
-    ("ジョギング", "jogging", 3),
-    ("シャーペン", "mechanical pencil", 3),
-    ("ジャズ", "jazz", 3),
-    ("ジャム", "jam", 3),
-    ("シチュー", "stew", 3),
-    ("チャンス", "chance", 3),
-    ("チャンネル", "channel", 3),
-    ("ジャングル", "jungle", 3),
-    ("ヨーロッパ", "Europe", 3),
-    ("マッサージ", "massage", 3),
-    ("ポップコーン", "popcorn", 3),
-    ("シャッター", "shutter", 3),
-    ("トラック", "truck", 3),
-    ("リュック", "backpack", 3),
-    ("ラッキー", "lucky", 3),
-    ("クラシック", "classical music", 3),
-    ("バッテリー", "battery", 3),
-    ("ギャグ", "gag / joke", 3),
-    ("キャンセル", "cancellation", 3),
-    ("ジョーク", "joke", 3),
-    ("チャーハン", "fried rice", 3),
-    ("ギョーザ", "gyoza / dumpling", 3),
-    ("パジャマ", "pajamas", 3),
-    ("シャンパン", "champagne", 3),
-    ("プログラム", "program", 3),
-    ("コンサート", "concert", 3),
-    ("ランキング", "ranking", 3),
-    ("オートバイ", "motorcycle", 3),
-    ("パスポート", "passport", 3),
-    ("ネックレス", "necklace", 3),
-    ("イヤリング", "earring", 3),
-    ("サングラス", "sunglasses", 3),
-    ("ヘッドホン", "headphones", 3),
-    ("マヨネーズ", "mayonnaise", 3),
-    ("ケチャップ", "ketchup", 3),
-    ("ソーセージ", "sausage", 3),
-    ("ハンバーグ", "hamburger steak", 3),
-    ("チーズケーキ", "cheesecake", 3),
-    ("バレンタイン", "Valentine's Day", 3),
-    ("カーニバル", "carnival", 3),
-    ("レインコート", "raincoat", 3),
-    ("リサイクル", "recycling", 3),
-    ("アンケート", "survey / questionnaire", 3),
-    ("バイオリン", "violin", 3),
-    ("バレーボール", "volleyball", 3),
-    ("ボクシング", "boxing", 3),
-    ("バドミントン", "badminton", 3),
-    ("ミステリー", "mystery", 3),
-    ("エピソード", "episode", 3),
-    ("トースター", "toaster", 3),
-    ("フライパン", "frying pan", 3),
-    ("パスワード", "password", 3),
-    ("ヘルメット", "helmet", 3),
-    ("アルコール", "alcohol", 3),
-    ("アナウンス", "announcement", 3),
-    ("キャンディー", "candy", 3),
-    ("カフェ", "café", 3),
-    ("ファン", "fan (person)", 3),
-    ("ハンバーガー", "hamburger", 3),
-    ("パーセント", "percent", 3),
-    ("ヨーグルト", "yogurt", 3),
-    # ------------------------------------------------- Level 4
-    ("コンピューター", "computer", 4),
-    ("インターネット", "internet", 4),
-    ("エスカレーター", "escalator", 4),
-    ("エレベーター", "elevator", 4),
-    ("アイスクリーム", "ice cream", 4),
-    ("バスケットボール", "basketball", 4),
-    ("サンドイッチ", "sandwich", 4),
-    ("ホッチキス", "stapler", 4),
-    ("クレジットカード", "credit card", 4),
-    ("インタビュー", "interview", 4),
-    ("トレーニング", "training / workout", 4),
-    ("ショッピング", "shopping", 4),
-    ("チャンピオン", "champion", 4),
-    ("ダイヤモンド", "diamond", 4),
-    ("ヘリコプター", "helicopter", 4),
-    ("ガソリンスタンド", "gas station", 4),
-    ("スーツケース", "suitcase", 4),
-    ("アクセサリー", "accessories / jewelry", 4),
-    ("コンタクトレンズ", "contact lenses", 4),
-    ("シートベルト", "seat belt", 4),
-    ("バーベキュー", "barbecue", 4),
-    ("プレッシャー", "pressure (mental)", 4),
-    ("メッセージ", "message", 4),
-    ("オレンジジュース", "orange juice", 4),
-    ("ポテトチップス", "potato chips", 4),
-    ("ドキュメンタリー", "documentary", 4),
-    ("スケジュール", "schedule", 4),
-    ("テクノロジー", "technology", 4),
-    ("オーケストラ", "orchestra", 4),
-    ("チームワーク", "teamwork", 4),
-    ("パンフレット", "pamphlet / brochure", 4),
-    ("マンション", "condominium", 4),
-    ("ダウンロード", "download", 4),
-    ("アップロード", "upload", 4),
-    ("アップデート", "update", 4),
-    ("ホームページ", "homepage / website", 4),
-    ("ニューヨーク", "New York", 4),
-    ("ミュンヘン", "Munich", 4),
-    ("ミュージカル", "musical", 4),
-    ("ミュージック", "music", 4),
-    ("リュックサック", "rucksack", 4),
-    ("グレープフルーツ", "grapefruit", 4),
-    ("センチメートル", "centimeter", 4),
-    ("キロメートル", "kilometer", 4),
-    ("ソファー", "sofa", 4),
-    ("ファイル", "file", 4),
-    ("フォント", "font", 4),
-    ("カフェイン", "caffeine", 4),
-    ("カフェオレ", "café au lait", 4),
-    ("フェリー", "ferry", 4),
-    ("シェフ", "chef", 4),
-    ("チェーン", "chain", 4),
-    ("オーストラリア", "Australia", 4),
-    ("インフルエンザ", "influenza / flu", 4),
-    ("フォーク", "fork", 4),
-    # ------------------------------------------------- Level 5
-    ("ファッション", "fashion", 5),
-    ("フィルム", "film", 5),
-    ("パーティー", "party", 5),
-    ("スパゲッティ", "spaghetti", 5),
-    ("ソフトウェア", "software", 5),
-    ("ウェブサイト", "website", 5),
-    ("チェック", "check", 5),
-    ("チェス", "chess", 5),
-    ("ジェットコースター", "roller coaster", 5),
-    ("ディナー", "dinner", 5),
-    ("ティッシュ", "tissue", 5),
-    ("ヴィーガン", "vegan", 5),
-    ("プロフィール", "profile", 5),
-    ("プロデューサー", "producer", 5),
-    ("ジェスチャー", "gesture", 5),
-    ("ミルクティー", "milk tea", 5),
-    ("ディスカッション", "discussion", 5),
-    ("ディスプレイ", "display", 5),
-    ("オーディオ", "audio", 5),
-    ("ウェディング", "wedding", 5),
-    ("ハロウィン", "Halloween", 5),
-    ("ウォーキング", "walking (exercise)", 5),
-    ("ミネラルウォーター", "mineral water", 5),
-    ("フィンランド", "Finland", 5),
-    ("フィリピン", "Philippines", 5),
-    ("フェスティバル", "festival", 5),
-    ("サーフィン", "surfing", 5),
-    ("フィギュア", "figure / figurine", 5),
-    ("デュエット", "duet", 5),
-    ("ヴィンテージ", "vintage", 5),
-    ("チェックイン", "check-in", 5),
-    ("ウィーン", "Vienna", 5),
-    ("プロジェクト", "project", 5),
-    ("マーケティング", "marketing", 5),
-    ("ミーティング", "meeting", 5),
-    ("スマートフォン", "smartphone", 5),
-]
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+REQUIRED_KEYS = {"katakana", "meaning", "level"}
+
+
+def words_dir() -> Path:
+    env = os.environ.get("WORDS_DIR")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parent.parent.parent / "words"
+
+
+def _word_files(root: Path) -> list[Path]:
+    def sort_key(p: Path) -> tuple[int, str]:
+        in_basic = "basic" in p.relative_to(root).parts
+        return (0 if in_basic else 1, str(p))
+
+    return sorted(root.rglob("*.json"), key=sort_key)
+
+
+def load_words() -> list[tuple[str, str, int]]:
+    root = words_dir()
+    merged: dict[str, tuple[str, str, int]] = {}
+    for f in _word_files(root):
+        try:
+            entries = json.loads(f.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{f}: invalid JSON: {e}") from e
+        if not isinstance(entries, list):
+            raise ValueError(f"{f}: expected a JSON list of word entries")
+        for i, entry in enumerate(entries):
+            if not isinstance(entry, dict) or not REQUIRED_KEYS <= entry.keys():
+                raise ValueError(
+                    f"{f} entry {i}: needs keys katakana/meaning/level, got {entry!r}"
+                )
+            katakana, meaning, level = entry["katakana"], entry["meaning"], entry["level"]
+            if (
+                not isinstance(katakana, str)
+                or not katakana
+                or not isinstance(meaning, str)
+                or not isinstance(level, int)
+                or not 1 <= level <= 5
+            ):
+                raise ValueError(
+                    f"{f} entry {i} ({entry.get('katakana', '?')}): "
+                    "katakana/meaning must be non-empty strings, level an int 1-5"
+                )
+            merged[katakana] = (katakana, meaning, level)
+    if not merged:
+        raise ValueError(f"no vocabulary found under {root}")
+    return list(merged.values())

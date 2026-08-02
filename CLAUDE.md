@@ -10,6 +10,7 @@ und ein Elo-basiertes Level, und wählt die nächsten Wörter adaptiv danach aus
 ```
 frontend/   Angular 20 (standalone components, signals, kein Router)
 backend/    FastAPI + SQLite (stdlib sqlite3), verwaltet mit uv
+words/      Vokabular als JSON: basic/ (in git) + additional/ (*.json gitignored)
 Dockerfile  Multi-Stage: Angular-Build → Python-Image; FastAPI served API + Statics
 ```
 
@@ -25,13 +26,19 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
   Antwort. Akzeptiert Hepburn- und Kunrei-Varianten (shi/si, matchi/macchi,
   shanpuu/shampuu, Makronen, `-` für ー). Tie-Breaker: bei gleichem
   Edit-Abstand gewinnt die Zuordnung mit mehr exakt getroffenen Voll-Kana.
-- `words.py` — Wörterbuch: 343 Einträge `(katakana, englische Bedeutung,
-  Level 1–5)`. Bedeutungen auf Englisch (Wunsch des Users: Lernmaterialien
-  sind englisch, Lehnwörter stammen meist aus dem Englischen); UI-Sprache
-  ist ebenfalls Englisch. **Romaji wird NICHT gepflegt** — es wird beim Seeden aus dem
-  Tokenizer generiert (`to_romaji`), damit Wörterbuch und Auswertung nie
-  auseinanderlaufen. Neue Wörter: nur hier eintragen; der Roundtrip-Test
-  validiert jedes Wort automatisch.
+- `words.py` — JSON-Loader für das Vokabular. Quelle ist `words/` im
+  Repo-Root (env `WORDS_DIR`, im Container `/app/words`): `basic/basic.json`
+  (343 Einträge, in git) + beliebige `additional/*.json` (gitignored, werden
+  aber in das Docker-Image gebacken — Format siehe
+  `words/additional/README.md`). Ladereihenfolge deterministisch (basic
+  zuerst, Rest nach Pfad sortiert); bei doppeltem Katakana gewinnt die
+  spätere Datei (additional kann basic überschreiben). Eintragsformat:
+  `{"katakana": …, "meaning": …, "level": 1-5}`. Bedeutungen auf Englisch
+  (Wunsch des Users: Lernmaterialien sind englisch, Lehnwörter stammen meist
+  aus dem Englischen); UI-Sprache ist ebenfalls Englisch. **Romaji wird
+  NICHT gepflegt** — es wird beim Seeden aus dem Tokenizer generiert
+  (`to_romaji`), damit Wörterbuch und Auswertung nie auseinanderlaufen.
+  Der Roundtrip-Test validiert jedes geladene Wort automatisch.
 - `game.py` — Elo (User K=32, Wort K=16, Start 1000), Level = f(Elo)
   (Level 1–12, 100 Elo pro Level ab 750), Wortauswahl: Pool ±160 Elo um den
   User, gewichtet nach Kana-Schwächen (EWMA), 15 % „Probe“-Wörter oberhalb
@@ -73,7 +80,7 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 # Backend (Port 8000)
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (22 Stück, inkl. Wörterbuch-Roundtrip)
+# Tests (26 Stück, inkl. Wörterbuch-Roundtrip und Vokabular-Loader)
 cd backend && uv run pytest
 
 # Frontend-Dev-Server (Port 4200, proxied /api → 8000)
@@ -93,8 +100,8 @@ docker compose up --build -d
   (ィ U+30A3 vs. イ U+30A4)!
 - `kana_stats` ist pro **Token** gekeyt (キャ ≠ キ), die Heatmap zeigt
   Einzel-Kana im Grid und Kombinationen als Chips darunter.
-- Seeding läuft bei jedem Start (Lifespan-Hook); löschen von Wörtern aus
-  `words.py` entfernt sie nicht aus der DB (bewusst, wegen FK auf attempts).
+- Seeding läuft bei jedem Start (Lifespan-Hook); Löschen von Wörtern aus den
+  JSON-Files entfernt sie nicht aus der DB (bewusst, wegen FK auf attempts).
 - Angular: standalone components, neue Control-Flow-Syntax (`@if`/`@for`),
   inline templates/styles. Kein Router — Tabs sind lokaler State.
 
@@ -105,6 +112,8 @@ docker compose up --build -d
   Container getestet (inkl. Persistenz über Neustart).
 - UI und Wortbedeutungen von Deutsch auf Englisch umgestellt (Seeding
   aktualisiert Bedeutungen bestehender DB-Einträge beim Start automatisch).
+- Vokabular von words.py nach `words/*.json` ausgelagert (basic in git,
+  additional nur lokal/im Image).
 
 ### Ideen / offen
 

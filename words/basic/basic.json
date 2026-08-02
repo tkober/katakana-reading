@@ -1,0 +1,1717 @@
+[
+  {
+    "katakana": "バス",
+    "meaning": "bus",
+    "level": 1
+  },
+  {
+    "katakana": "パン",
+    "meaning": "bread",
+    "level": 1
+  },
+  {
+    "katakana": "ペン",
+    "meaning": "pen",
+    "level": 1
+  },
+  {
+    "katakana": "メモ",
+    "meaning": "memo / note",
+    "level": 1
+  },
+  {
+    "katakana": "ガム",
+    "meaning": "chewing gum",
+    "level": 1
+  },
+  {
+    "katakana": "ゼロ",
+    "meaning": "zero",
+    "level": 1
+  },
+  {
+    "katakana": "ワニ",
+    "meaning": "crocodile",
+    "level": 1
+  },
+  {
+    "katakana": "ピザ",
+    "meaning": "pizza",
+    "level": 1
+  },
+  {
+    "katakana": "ビル",
+    "meaning": "(office) building",
+    "level": 1
+  },
+  {
+    "katakana": "プロ",
+    "meaning": "pro / professional",
+    "level": 1
+  },
+  {
+    "katakana": "レジ",
+    "meaning": "checkout / register",
+    "level": 1
+  },
+  {
+    "katakana": "パリ",
+    "meaning": "Paris",
+    "level": 1
+  },
+  {
+    "katakana": "カメラ",
+    "meaning": "camera",
+    "level": 1
+  },
+  {
+    "katakana": "テレビ",
+    "meaning": "TV",
+    "level": 1
+  },
+  {
+    "katakana": "バナナ",
+    "meaning": "banana",
+    "level": 1
+  },
+  {
+    "katakana": "トマト",
+    "meaning": "tomato",
+    "level": 1
+  },
+  {
+    "katakana": "ピアノ",
+    "meaning": "piano",
+    "level": 1
+  },
+  {
+    "katakana": "ホテル",
+    "meaning": "hotel",
+    "level": 1
+  },
+  {
+    "katakana": "ミルク",
+    "meaning": "milk",
+    "level": 1
+  },
+  {
+    "katakana": "レモン",
+    "meaning": "lemon",
+    "level": 1
+  },
+  {
+    "katakana": "メロン",
+    "meaning": "melon",
+    "level": 1
+  },
+  {
+    "katakana": "パンダ",
+    "meaning": "panda",
+    "level": 1
+  },
+  {
+    "katakana": "アニメ",
+    "meaning": "anime",
+    "level": 1
+  },
+  {
+    "katakana": "サラダ",
+    "meaning": "salad",
+    "level": 1
+  },
+  {
+    "katakana": "ワイン",
+    "meaning": "wine",
+    "level": 1
+  },
+  {
+    "katakana": "ナイフ",
+    "meaning": "knife",
+    "level": 1
+  },
+  {
+    "katakana": "テスト",
+    "meaning": "test",
+    "level": 1
+  },
+  {
+    "katakana": "ズボン",
+    "meaning": "trousers / pants",
+    "level": 1
+  },
+  {
+    "katakana": "ゴリラ",
+    "meaning": "gorilla",
+    "level": 1
+  },
+  {
+    "katakana": "キウイ",
+    "meaning": "kiwi",
+    "level": 1
+  },
+  {
+    "katakana": "ココア",
+    "meaning": "cocoa",
+    "level": 1
+  },
+  {
+    "katakana": "クラス",
+    "meaning": "class (school)",
+    "level": 1
+  },
+  {
+    "katakana": "ガラス",
+    "meaning": "glass (material)",
+    "level": 1
+  },
+  {
+    "katakana": "グラス",
+    "meaning": "(drinking) glass",
+    "level": 1
+  },
+  {
+    "katakana": "ドラマ",
+    "meaning": "drama / TV series",
+    "level": 1
+  },
+  {
+    "katakana": "ダンス",
+    "meaning": "dance",
+    "level": 1
+  },
+  {
+    "katakana": "テニス",
+    "meaning": "tennis",
+    "level": 1
+  },
+  {
+    "katakana": "ラジオ",
+    "meaning": "radio",
+    "level": 1
+  },
+  {
+    "katakana": "アイス",
+    "meaning": "ice cream",
+    "level": 1
+  },
+  {
+    "katakana": "オレンジ",
+    "meaning": "orange",
+    "level": 1
+  },
+  {
+    "katakana": "バイク",
+    "meaning": "motorbike",
+    "level": 1
+  },
+  {
+    "katakana": "イタリア",
+    "meaning": "Italy",
+    "level": 1
+  },
+  {
+    "katakana": "アメリカ",
+    "meaning": "America / USA",
+    "level": 1
+  },
+  {
+    "katakana": "フランス",
+    "meaning": "France",
+    "level": 1
+  },
+  {
+    "katakana": "ドイツ",
+    "meaning": "Germany",
+    "level": 1
+  },
+  {
+    "katakana": "スペイン",
+    "meaning": "Spain",
+    "level": 1
+  },
+  {
+    "katakana": "ロシア",
+    "meaning": "Russia",
+    "level": 1
+  },
+  {
+    "katakana": "インド",
+    "meaning": "India",
+    "level": 1
+  },
+  {
+    "katakana": "エアコン",
+    "meaning": "air conditioner",
+    "level": 1
+  },
+  {
+    "katakana": "ライオン",
+    "meaning": "lion",
+    "level": 1
+  },
+  {
+    "katakana": "コアラ",
+    "meaning": "koala",
+    "level": 1
+  },
+  {
+    "katakana": "ペンギン",
+    "meaning": "penguin",
+    "level": 1
+  },
+  {
+    "katakana": "ゴルフ",
+    "meaning": "golf",
+    "level": 1
+  },
+  {
+    "katakana": "ボタン",
+    "meaning": "button",
+    "level": 1
+  },
+  {
+    "katakana": "タオル",
+    "meaning": "towel",
+    "level": 1
+  },
+  {
+    "katakana": "テント",
+    "meaning": "tent",
+    "level": 1
+  },
+  {
+    "katakana": "ヒント",
+    "meaning": "hint",
+    "level": 1
+  },
+  {
+    "katakana": "プリン",
+    "meaning": "pudding / custard",
+    "level": 1
+  },
+  {
+    "katakana": "マイク",
+    "meaning": "microphone",
+    "level": 1
+  },
+  {
+    "katakana": "ライス",
+    "meaning": "rice (served)",
+    "level": 1
+  },
+  {
+    "katakana": "ビデオ",
+    "meaning": "video",
+    "level": 1
+  },
+  {
+    "katakana": "タイヤ",
+    "meaning": "tire",
+    "level": 1
+  },
+  {
+    "katakana": "ガイド",
+    "meaning": "guide",
+    "level": 1
+  },
+  {
+    "katakana": "アプリ",
+    "meaning": "app",
+    "level": 1
+  },
+  {
+    "katakana": "サイト",
+    "meaning": "website / site",
+    "level": 1
+  },
+  {
+    "katakana": "スイス",
+    "meaning": "Switzerland",
+    "level": 1
+  },
+  {
+    "katakana": "トイレ",
+    "meaning": "toilet / restroom",
+    "level": 1
+  },
+  {
+    "katakana": "マウス",
+    "meaning": "(computer) mouse",
+    "level": 1
+  },
+  {
+    "katakana": "アイデア",
+    "meaning": "idea",
+    "level": 1
+  },
+  {
+    "katakana": "アイロン",
+    "meaning": "(clothes) iron",
+    "level": 1
+  },
+  {
+    "katakana": "コーヒー",
+    "meaning": "coffee",
+    "level": 2
+  },
+  {
+    "katakana": "ケーキ",
+    "meaning": "cake",
+    "level": 2
+  },
+  {
+    "katakana": "スーパー",
+    "meaning": "supermarket",
+    "level": 2
+  },
+  {
+    "katakana": "タクシー",
+    "meaning": "taxi",
+    "level": 2
+  },
+  {
+    "katakana": "デパート",
+    "meaning": "department store",
+    "level": 2
+  },
+  {
+    "katakana": "ノート",
+    "meaning": "notebook",
+    "level": 2
+  },
+  {
+    "katakana": "カレー",
+    "meaning": "curry",
+    "level": 2
+  },
+  {
+    "katakana": "ラーメン",
+    "meaning": "ramen",
+    "level": 2
+  },
+  {
+    "katakana": "ビール",
+    "meaning": "beer",
+    "level": 2
+  },
+  {
+    "katakana": "チーズ",
+    "meaning": "cheese",
+    "level": 2
+  },
+  {
+    "katakana": "テーブル",
+    "meaning": "table",
+    "level": 2
+  },
+  {
+    "katakana": "スプーン",
+    "meaning": "spoon",
+    "level": 2
+  },
+  {
+    "katakana": "スポーツ",
+    "meaning": "sports",
+    "level": 2
+  },
+  {
+    "katakana": "プール",
+    "meaning": "(swimming) pool",
+    "level": 2
+  },
+  {
+    "katakana": "メール",
+    "meaning": "e-mail",
+    "level": 2
+  },
+  {
+    "katakana": "ゲーム",
+    "meaning": "game",
+    "level": 2
+  },
+  {
+    "katakana": "アパート",
+    "meaning": "apartment",
+    "level": 2
+  },
+  {
+    "katakana": "スカート",
+    "meaning": "skirt",
+    "level": 2
+  },
+  {
+    "katakana": "セーター",
+    "meaning": "sweater",
+    "level": 2
+  },
+  {
+    "katakana": "コート",
+    "meaning": "coat",
+    "level": 2
+  },
+  {
+    "katakana": "ボール",
+    "meaning": "ball",
+    "level": 2
+  },
+  {
+    "katakana": "カード",
+    "meaning": "card",
+    "level": 2
+  },
+  {
+    "katakana": "サービス",
+    "meaning": "service",
+    "level": 2
+  },
+  {
+    "katakana": "バター",
+    "meaning": "butter",
+    "level": 2
+  },
+  {
+    "katakana": "ドーナツ",
+    "meaning": "donut",
+    "level": 2
+  },
+  {
+    "katakana": "ピーマン",
+    "meaning": "bell pepper",
+    "level": 2
+  },
+  {
+    "katakana": "コーラ",
+    "meaning": "cola",
+    "level": 2
+  },
+  {
+    "katakana": "ソース",
+    "meaning": "sauce",
+    "level": 2
+  },
+  {
+    "katakana": "スープ",
+    "meaning": "soup",
+    "level": 2
+  },
+  {
+    "katakana": "ステーキ",
+    "meaning": "steak",
+    "level": 2
+  },
+  {
+    "katakana": "デート",
+    "meaning": "date (romantic)",
+    "level": 2
+  },
+  {
+    "katakana": "カーテン",
+    "meaning": "curtain",
+    "level": 2
+  },
+  {
+    "katakana": "シーツ",
+    "meaning": "(bed) sheets",
+    "level": 2
+  },
+  {
+    "katakana": "ギター",
+    "meaning": "guitar",
+    "level": 2
+  },
+  {
+    "katakana": "ピーナツ",
+    "meaning": "peanut",
+    "level": 2
+  },
+  {
+    "katakana": "マラソン",
+    "meaning": "marathon",
+    "level": 2
+  },
+  {
+    "katakana": "ハイキング",
+    "meaning": "hiking",
+    "level": 2
+  },
+  {
+    "katakana": "アルバイト",
+    "meaning": "part-time job",
+    "level": 2
+  },
+  {
+    "katakana": "レストラン",
+    "meaning": "restaurant",
+    "level": 2
+  },
+  {
+    "katakana": "カレンダー",
+    "meaning": "calendar",
+    "level": 2
+  },
+  {
+    "katakana": "エプロン",
+    "meaning": "apron",
+    "level": 2
+  },
+  {
+    "katakana": "オムレツ",
+    "meaning": "omelet",
+    "level": 2
+  },
+  {
+    "katakana": "プレゼント",
+    "meaning": "present / gift",
+    "level": 2
+  },
+  {
+    "katakana": "スキー",
+    "meaning": "skiing",
+    "level": 2
+  },
+  {
+    "katakana": "スケート",
+    "meaning": "skating",
+    "level": 2
+  },
+  {
+    "katakana": "テーマ",
+    "meaning": "theme / topic",
+    "level": 2
+  },
+  {
+    "katakana": "ユーモア",
+    "meaning": "humor",
+    "level": 2
+  },
+  {
+    "katakana": "リーダー",
+    "meaning": "leader",
+    "level": 2
+  },
+  {
+    "katakana": "ルール",
+    "meaning": "rule",
+    "level": 2
+  },
+  {
+    "katakana": "ローマ",
+    "meaning": "Rome",
+    "level": 2
+  },
+  {
+    "katakana": "カンガルー",
+    "meaning": "kangaroo",
+    "level": 2
+  },
+  {
+    "katakana": "ヒーロー",
+    "meaning": "hero",
+    "level": 2
+  },
+  {
+    "katakana": "サンダル",
+    "meaning": "sandals",
+    "level": 2
+  },
+  {
+    "katakana": "マフラー",
+    "meaning": "scarf / muffler",
+    "level": 2
+  },
+  {
+    "katakana": "パソコン",
+    "meaning": "PC / computer",
+    "level": 2
+  },
+  {
+    "katakana": "アルバム",
+    "meaning": "album",
+    "level": 2
+  },
+  {
+    "katakana": "コンビニ",
+    "meaning": "convenience store",
+    "level": 2
+  },
+  {
+    "katakana": "レシート",
+    "meaning": "receipt",
+    "level": 2
+  },
+  {
+    "katakana": "ハンカチ",
+    "meaning": "handkerchief",
+    "level": 2
+  },
+  {
+    "katakana": "エンジン",
+    "meaning": "engine",
+    "level": 2
+  },
+  {
+    "katakana": "ブレーキ",
+    "meaning": "brake",
+    "level": 2
+  },
+  {
+    "katakana": "イヤホン",
+    "meaning": "earphones",
+    "level": 2
+  },
+  {
+    "katakana": "キーボード",
+    "meaning": "keyboard",
+    "level": 2
+  },
+  {
+    "katakana": "モニター",
+    "meaning": "monitor",
+    "level": 2
+  },
+  {
+    "katakana": "プリンター",
+    "meaning": "printer",
+    "level": 2
+  },
+  {
+    "katakana": "スクリーン",
+    "meaning": "screen",
+    "level": 2
+  },
+  {
+    "katakana": "ビタミン",
+    "meaning": "vitamin",
+    "level": 2
+  },
+  {
+    "katakana": "カロリー",
+    "meaning": "calorie",
+    "level": 2
+  },
+  {
+    "katakana": "ストレス",
+    "meaning": "stress",
+    "level": 2
+  },
+  {
+    "katakana": "シリーズ",
+    "meaning": "series",
+    "level": 2
+  },
+  {
+    "katakana": "デザイン",
+    "meaning": "design",
+    "level": 2
+  },
+  {
+    "katakana": "デザート",
+    "meaning": "dessert",
+    "level": 2
+  },
+  {
+    "katakana": "ピンポン",
+    "meaning": "ping-pong",
+    "level": 2
+  },
+  {
+    "katakana": "ラグビー",
+    "meaning": "rugby",
+    "level": 2
+  },
+  {
+    "katakana": "リモコン",
+    "meaning": "remote control",
+    "level": 2
+  },
+  {
+    "katakana": "オーブン",
+    "meaning": "oven",
+    "level": 2
+  },
+  {
+    "katakana": "ミキサー",
+    "meaning": "blender / mixer",
+    "level": 2
+  },
+  {
+    "katakana": "ポスター",
+    "meaning": "poster",
+    "level": 2
+  },
+  {
+    "katakana": "カタログ",
+    "meaning": "catalog",
+    "level": 2
+  },
+  {
+    "katakana": "カクテル",
+    "meaning": "cocktail",
+    "level": 2
+  },
+  {
+    "katakana": "ウイスキー",
+    "meaning": "whisky",
+    "level": 2
+  },
+  {
+    "katakana": "トンネル",
+    "meaning": "tunnel",
+    "level": 2
+  },
+  {
+    "katakana": "ドライブ",
+    "meaning": "drive (for fun)",
+    "level": 2
+  },
+  {
+    "katakana": "ブログ",
+    "meaning": "blog",
+    "level": 2
+  },
+  {
+    "katakana": "デジタル",
+    "meaning": "digital",
+    "level": 2
+  },
+  {
+    "katakana": "カメラマン",
+    "meaning": "photographer",
+    "level": 2
+  },
+  {
+    "katakana": "ブラジル",
+    "meaning": "Brazil",
+    "level": 2
+  },
+  {
+    "katakana": "エジプト",
+    "meaning": "Egypt",
+    "level": 2
+  },
+  {
+    "katakana": "オランダ",
+    "meaning": "Netherlands",
+    "level": 2
+  },
+  {
+    "katakana": "ベルリン",
+    "meaning": "Berlin",
+    "level": 2
+  },
+  {
+    "katakana": "ロンドン",
+    "meaning": "London",
+    "level": 2
+  },
+  {
+    "katakana": "フルーツ",
+    "meaning": "fruit",
+    "level": 2
+  },
+  {
+    "katakana": "スタジオ",
+    "meaning": "studio",
+    "level": 2
+  },
+  {
+    "katakana": "ウイルス",
+    "meaning": "virus",
+    "level": 2
+  },
+  {
+    "katakana": "エネルギー",
+    "meaning": "energy",
+    "level": 2
+  },
+  {
+    "katakana": "アレルギー",
+    "meaning": "allergy",
+    "level": 2
+  },
+  {
+    "katakana": "クリスマス",
+    "meaning": "Christmas",
+    "level": 2
+  },
+  {
+    "katakana": "アドバイス",
+    "meaning": "advice",
+    "level": 2
+  },
+  {
+    "katakana": "シャワー",
+    "meaning": "shower",
+    "level": 3
+  },
+  {
+    "katakana": "ジュース",
+    "meaning": "juice",
+    "level": 3
+  },
+  {
+    "katakana": "チョコレート",
+    "meaning": "chocolate",
+    "level": 3
+  },
+  {
+    "katakana": "シャツ",
+    "meaning": "shirt",
+    "level": 3
+  },
+  {
+    "katakana": "マッチ",
+    "meaning": "match(stick)",
+    "level": 3
+  },
+  {
+    "katakana": "ベッド",
+    "meaning": "bed",
+    "level": 3
+  },
+  {
+    "katakana": "サッカー",
+    "meaning": "soccer / football",
+    "level": 3
+  },
+  {
+    "katakana": "クッキー",
+    "meaning": "cookie",
+    "level": 3
+  },
+  {
+    "katakana": "ニュース",
+    "meaning": "news",
+    "level": 3
+  },
+  {
+    "katakana": "メニュー",
+    "meaning": "menu",
+    "level": 3
+  },
+  {
+    "katakana": "シャンプー",
+    "meaning": "shampoo",
+    "level": 3
+  },
+  {
+    "katakana": "ジャケット",
+    "meaning": "jacket",
+    "level": 3
+  },
+  {
+    "katakana": "ポケット",
+    "meaning": "pocket",
+    "level": 3
+  },
+  {
+    "katakana": "ロケット",
+    "meaning": "rocket",
+    "level": 3
+  },
+  {
+    "katakana": "スリッパ",
+    "meaning": "slippers",
+    "level": 3
+  },
+  {
+    "katakana": "ペット",
+    "meaning": "pet",
+    "level": 3
+  },
+  {
+    "katakana": "カップ",
+    "meaning": "cup",
+    "level": 3
+  },
+  {
+    "katakana": "コップ",
+    "meaning": "glass / tumbler",
+    "level": 3
+  },
+  {
+    "katakana": "バッグ",
+    "meaning": "bag",
+    "level": 3
+  },
+  {
+    "katakana": "キッチン",
+    "meaning": "kitchen",
+    "level": 3
+  },
+  {
+    "katakana": "チケット",
+    "meaning": "ticket",
+    "level": 3
+  },
+  {
+    "katakana": "キャンプ",
+    "meaning": "camping",
+    "level": 3
+  },
+  {
+    "katakana": "キャベツ",
+    "meaning": "cabbage",
+    "level": 3
+  },
+  {
+    "katakana": "ジョギング",
+    "meaning": "jogging",
+    "level": 3
+  },
+  {
+    "katakana": "シャーペン",
+    "meaning": "mechanical pencil",
+    "level": 3
+  },
+  {
+    "katakana": "ジャズ",
+    "meaning": "jazz",
+    "level": 3
+  },
+  {
+    "katakana": "ジャム",
+    "meaning": "jam",
+    "level": 3
+  },
+  {
+    "katakana": "シチュー",
+    "meaning": "stew",
+    "level": 3
+  },
+  {
+    "katakana": "チャンス",
+    "meaning": "chance",
+    "level": 3
+  },
+  {
+    "katakana": "チャンネル",
+    "meaning": "channel",
+    "level": 3
+  },
+  {
+    "katakana": "ジャングル",
+    "meaning": "jungle",
+    "level": 3
+  },
+  {
+    "katakana": "ヨーロッパ",
+    "meaning": "Europe",
+    "level": 3
+  },
+  {
+    "katakana": "マッサージ",
+    "meaning": "massage",
+    "level": 3
+  },
+  {
+    "katakana": "ポップコーン",
+    "meaning": "popcorn",
+    "level": 3
+  },
+  {
+    "katakana": "シャッター",
+    "meaning": "shutter",
+    "level": 3
+  },
+  {
+    "katakana": "トラック",
+    "meaning": "truck",
+    "level": 3
+  },
+  {
+    "katakana": "リュック",
+    "meaning": "backpack",
+    "level": 3
+  },
+  {
+    "katakana": "ラッキー",
+    "meaning": "lucky",
+    "level": 3
+  },
+  {
+    "katakana": "クラシック",
+    "meaning": "classical music",
+    "level": 3
+  },
+  {
+    "katakana": "バッテリー",
+    "meaning": "battery",
+    "level": 3
+  },
+  {
+    "katakana": "ギャグ",
+    "meaning": "gag / joke",
+    "level": 3
+  },
+  {
+    "katakana": "キャンセル",
+    "meaning": "cancellation",
+    "level": 3
+  },
+  {
+    "katakana": "ジョーク",
+    "meaning": "joke",
+    "level": 3
+  },
+  {
+    "katakana": "チャーハン",
+    "meaning": "fried rice",
+    "level": 3
+  },
+  {
+    "katakana": "ギョーザ",
+    "meaning": "gyoza / dumpling",
+    "level": 3
+  },
+  {
+    "katakana": "パジャマ",
+    "meaning": "pajamas",
+    "level": 3
+  },
+  {
+    "katakana": "シャンパン",
+    "meaning": "champagne",
+    "level": 3
+  },
+  {
+    "katakana": "プログラム",
+    "meaning": "program",
+    "level": 3
+  },
+  {
+    "katakana": "コンサート",
+    "meaning": "concert",
+    "level": 3
+  },
+  {
+    "katakana": "ランキング",
+    "meaning": "ranking",
+    "level": 3
+  },
+  {
+    "katakana": "オートバイ",
+    "meaning": "motorcycle",
+    "level": 3
+  },
+  {
+    "katakana": "パスポート",
+    "meaning": "passport",
+    "level": 3
+  },
+  {
+    "katakana": "ネックレス",
+    "meaning": "necklace",
+    "level": 3
+  },
+  {
+    "katakana": "イヤリング",
+    "meaning": "earring",
+    "level": 3
+  },
+  {
+    "katakana": "サングラス",
+    "meaning": "sunglasses",
+    "level": 3
+  },
+  {
+    "katakana": "ヘッドホン",
+    "meaning": "headphones",
+    "level": 3
+  },
+  {
+    "katakana": "マヨネーズ",
+    "meaning": "mayonnaise",
+    "level": 3
+  },
+  {
+    "katakana": "ケチャップ",
+    "meaning": "ketchup",
+    "level": 3
+  },
+  {
+    "katakana": "ソーセージ",
+    "meaning": "sausage",
+    "level": 3
+  },
+  {
+    "katakana": "ハンバーグ",
+    "meaning": "hamburger steak",
+    "level": 3
+  },
+  {
+    "katakana": "チーズケーキ",
+    "meaning": "cheesecake",
+    "level": 3
+  },
+  {
+    "katakana": "バレンタイン",
+    "meaning": "Valentine's Day",
+    "level": 3
+  },
+  {
+    "katakana": "カーニバル",
+    "meaning": "carnival",
+    "level": 3
+  },
+  {
+    "katakana": "レインコート",
+    "meaning": "raincoat",
+    "level": 3
+  },
+  {
+    "katakana": "リサイクル",
+    "meaning": "recycling",
+    "level": 3
+  },
+  {
+    "katakana": "アンケート",
+    "meaning": "survey / questionnaire",
+    "level": 3
+  },
+  {
+    "katakana": "バイオリン",
+    "meaning": "violin",
+    "level": 3
+  },
+  {
+    "katakana": "バレーボール",
+    "meaning": "volleyball",
+    "level": 3
+  },
+  {
+    "katakana": "ボクシング",
+    "meaning": "boxing",
+    "level": 3
+  },
+  {
+    "katakana": "バドミントン",
+    "meaning": "badminton",
+    "level": 3
+  },
+  {
+    "katakana": "ミステリー",
+    "meaning": "mystery",
+    "level": 3
+  },
+  {
+    "katakana": "エピソード",
+    "meaning": "episode",
+    "level": 3
+  },
+  {
+    "katakana": "トースター",
+    "meaning": "toaster",
+    "level": 3
+  },
+  {
+    "katakana": "フライパン",
+    "meaning": "frying pan",
+    "level": 3
+  },
+  {
+    "katakana": "パスワード",
+    "meaning": "password",
+    "level": 3
+  },
+  {
+    "katakana": "ヘルメット",
+    "meaning": "helmet",
+    "level": 3
+  },
+  {
+    "katakana": "アルコール",
+    "meaning": "alcohol",
+    "level": 3
+  },
+  {
+    "katakana": "アナウンス",
+    "meaning": "announcement",
+    "level": 3
+  },
+  {
+    "katakana": "キャンディー",
+    "meaning": "candy",
+    "level": 3
+  },
+  {
+    "katakana": "カフェ",
+    "meaning": "café",
+    "level": 3
+  },
+  {
+    "katakana": "ファン",
+    "meaning": "fan (person)",
+    "level": 3
+  },
+  {
+    "katakana": "ハンバーガー",
+    "meaning": "hamburger",
+    "level": 3
+  },
+  {
+    "katakana": "パーセント",
+    "meaning": "percent",
+    "level": 3
+  },
+  {
+    "katakana": "ヨーグルト",
+    "meaning": "yogurt",
+    "level": 3
+  },
+  {
+    "katakana": "コンピューター",
+    "meaning": "computer",
+    "level": 4
+  },
+  {
+    "katakana": "インターネット",
+    "meaning": "internet",
+    "level": 4
+  },
+  {
+    "katakana": "エスカレーター",
+    "meaning": "escalator",
+    "level": 4
+  },
+  {
+    "katakana": "エレベーター",
+    "meaning": "elevator",
+    "level": 4
+  },
+  {
+    "katakana": "アイスクリーム",
+    "meaning": "ice cream",
+    "level": 4
+  },
+  {
+    "katakana": "バスケットボール",
+    "meaning": "basketball",
+    "level": 4
+  },
+  {
+    "katakana": "サンドイッチ",
+    "meaning": "sandwich",
+    "level": 4
+  },
+  {
+    "katakana": "ホッチキス",
+    "meaning": "stapler",
+    "level": 4
+  },
+  {
+    "katakana": "クレジットカード",
+    "meaning": "credit card",
+    "level": 4
+  },
+  {
+    "katakana": "インタビュー",
+    "meaning": "interview",
+    "level": 4
+  },
+  {
+    "katakana": "トレーニング",
+    "meaning": "training / workout",
+    "level": 4
+  },
+  {
+    "katakana": "ショッピング",
+    "meaning": "shopping",
+    "level": 4
+  },
+  {
+    "katakana": "チャンピオン",
+    "meaning": "champion",
+    "level": 4
+  },
+  {
+    "katakana": "ダイヤモンド",
+    "meaning": "diamond",
+    "level": 4
+  },
+  {
+    "katakana": "ヘリコプター",
+    "meaning": "helicopter",
+    "level": 4
+  },
+  {
+    "katakana": "ガソリンスタンド",
+    "meaning": "gas station",
+    "level": 4
+  },
+  {
+    "katakana": "スーツケース",
+    "meaning": "suitcase",
+    "level": 4
+  },
+  {
+    "katakana": "アクセサリー",
+    "meaning": "accessories / jewelry",
+    "level": 4
+  },
+  {
+    "katakana": "コンタクトレンズ",
+    "meaning": "contact lenses",
+    "level": 4
+  },
+  {
+    "katakana": "シートベルト",
+    "meaning": "seat belt",
+    "level": 4
+  },
+  {
+    "katakana": "バーベキュー",
+    "meaning": "barbecue",
+    "level": 4
+  },
+  {
+    "katakana": "プレッシャー",
+    "meaning": "pressure (mental)",
+    "level": 4
+  },
+  {
+    "katakana": "メッセージ",
+    "meaning": "message",
+    "level": 4
+  },
+  {
+    "katakana": "オレンジジュース",
+    "meaning": "orange juice",
+    "level": 4
+  },
+  {
+    "katakana": "ポテトチップス",
+    "meaning": "potato chips",
+    "level": 4
+  },
+  {
+    "katakana": "ドキュメンタリー",
+    "meaning": "documentary",
+    "level": 4
+  },
+  {
+    "katakana": "スケジュール",
+    "meaning": "schedule",
+    "level": 4
+  },
+  {
+    "katakana": "テクノロジー",
+    "meaning": "technology",
+    "level": 4
+  },
+  {
+    "katakana": "オーケストラ",
+    "meaning": "orchestra",
+    "level": 4
+  },
+  {
+    "katakana": "チームワーク",
+    "meaning": "teamwork",
+    "level": 4
+  },
+  {
+    "katakana": "パンフレット",
+    "meaning": "pamphlet / brochure",
+    "level": 4
+  },
+  {
+    "katakana": "マンション",
+    "meaning": "condominium",
+    "level": 4
+  },
+  {
+    "katakana": "ダウンロード",
+    "meaning": "download",
+    "level": 4
+  },
+  {
+    "katakana": "アップロード",
+    "meaning": "upload",
+    "level": 4
+  },
+  {
+    "katakana": "アップデート",
+    "meaning": "update",
+    "level": 4
+  },
+  {
+    "katakana": "ホームページ",
+    "meaning": "homepage / website",
+    "level": 4
+  },
+  {
+    "katakana": "ニューヨーク",
+    "meaning": "New York",
+    "level": 4
+  },
+  {
+    "katakana": "ミュンヘン",
+    "meaning": "Munich",
+    "level": 4
+  },
+  {
+    "katakana": "ミュージカル",
+    "meaning": "musical",
+    "level": 4
+  },
+  {
+    "katakana": "ミュージック",
+    "meaning": "music",
+    "level": 4
+  },
+  {
+    "katakana": "リュックサック",
+    "meaning": "rucksack",
+    "level": 4
+  },
+  {
+    "katakana": "グレープフルーツ",
+    "meaning": "grapefruit",
+    "level": 4
+  },
+  {
+    "katakana": "センチメートル",
+    "meaning": "centimeter",
+    "level": 4
+  },
+  {
+    "katakana": "キロメートル",
+    "meaning": "kilometer",
+    "level": 4
+  },
+  {
+    "katakana": "ソファー",
+    "meaning": "sofa",
+    "level": 4
+  },
+  {
+    "katakana": "ファイル",
+    "meaning": "file",
+    "level": 4
+  },
+  {
+    "katakana": "フォント",
+    "meaning": "font",
+    "level": 4
+  },
+  {
+    "katakana": "カフェイン",
+    "meaning": "caffeine",
+    "level": 4
+  },
+  {
+    "katakana": "カフェオレ",
+    "meaning": "café au lait",
+    "level": 4
+  },
+  {
+    "katakana": "フェリー",
+    "meaning": "ferry",
+    "level": 4
+  },
+  {
+    "katakana": "シェフ",
+    "meaning": "chef",
+    "level": 4
+  },
+  {
+    "katakana": "チェーン",
+    "meaning": "chain",
+    "level": 4
+  },
+  {
+    "katakana": "オーストラリア",
+    "meaning": "Australia",
+    "level": 4
+  },
+  {
+    "katakana": "インフルエンザ",
+    "meaning": "influenza / flu",
+    "level": 4
+  },
+  {
+    "katakana": "フォーク",
+    "meaning": "fork",
+    "level": 4
+  },
+  {
+    "katakana": "ファッション",
+    "meaning": "fashion",
+    "level": 5
+  },
+  {
+    "katakana": "フィルム",
+    "meaning": "film",
+    "level": 5
+  },
+  {
+    "katakana": "パーティー",
+    "meaning": "party",
+    "level": 5
+  },
+  {
+    "katakana": "スパゲッティ",
+    "meaning": "spaghetti",
+    "level": 5
+  },
+  {
+    "katakana": "ソフトウェア",
+    "meaning": "software",
+    "level": 5
+  },
+  {
+    "katakana": "ウェブサイト",
+    "meaning": "website",
+    "level": 5
+  },
+  {
+    "katakana": "チェック",
+    "meaning": "check",
+    "level": 5
+  },
+  {
+    "katakana": "チェス",
+    "meaning": "chess",
+    "level": 5
+  },
+  {
+    "katakana": "ジェットコースター",
+    "meaning": "roller coaster",
+    "level": 5
+  },
+  {
+    "katakana": "ディナー",
+    "meaning": "dinner",
+    "level": 5
+  },
+  {
+    "katakana": "ティッシュ",
+    "meaning": "tissue",
+    "level": 5
+  },
+  {
+    "katakana": "ヴィーガン",
+    "meaning": "vegan",
+    "level": 5
+  },
+  {
+    "katakana": "プロフィール",
+    "meaning": "profile",
+    "level": 5
+  },
+  {
+    "katakana": "プロデューサー",
+    "meaning": "producer",
+    "level": 5
+  },
+  {
+    "katakana": "ジェスチャー",
+    "meaning": "gesture",
+    "level": 5
+  },
+  {
+    "katakana": "ミルクティー",
+    "meaning": "milk tea",
+    "level": 5
+  },
+  {
+    "katakana": "ディスカッション",
+    "meaning": "discussion",
+    "level": 5
+  },
+  {
+    "katakana": "ディスプレイ",
+    "meaning": "display",
+    "level": 5
+  },
+  {
+    "katakana": "オーディオ",
+    "meaning": "audio",
+    "level": 5
+  },
+  {
+    "katakana": "ウェディング",
+    "meaning": "wedding",
+    "level": 5
+  },
+  {
+    "katakana": "ハロウィン",
+    "meaning": "Halloween",
+    "level": 5
+  },
+  {
+    "katakana": "ウォーキング",
+    "meaning": "walking (exercise)",
+    "level": 5
+  },
+  {
+    "katakana": "ミネラルウォーター",
+    "meaning": "mineral water",
+    "level": 5
+  },
+  {
+    "katakana": "フィンランド",
+    "meaning": "Finland",
+    "level": 5
+  },
+  {
+    "katakana": "フィリピン",
+    "meaning": "Philippines",
+    "level": 5
+  },
+  {
+    "katakana": "フェスティバル",
+    "meaning": "festival",
+    "level": 5
+  },
+  {
+    "katakana": "サーフィン",
+    "meaning": "surfing",
+    "level": 5
+  },
+  {
+    "katakana": "フィギュア",
+    "meaning": "figure / figurine",
+    "level": 5
+  },
+  {
+    "katakana": "デュエット",
+    "meaning": "duet",
+    "level": 5
+  },
+  {
+    "katakana": "ヴィンテージ",
+    "meaning": "vintage",
+    "level": 5
+  },
+  {
+    "katakana": "チェックイン",
+    "meaning": "check-in",
+    "level": 5
+  },
+  {
+    "katakana": "ウィーン",
+    "meaning": "Vienna",
+    "level": 5
+  },
+  {
+    "katakana": "プロジェクト",
+    "meaning": "project",
+    "level": 5
+  },
+  {
+    "katakana": "マーケティング",
+    "meaning": "marketing",
+    "level": 5
+  },
+  {
+    "katakana": "ミーティング",
+    "meaning": "meeting",
+    "level": 5
+  },
+  {
+    "katakana": "スマートフォン",
+    "meaning": "smartphone",
+    "level": 5
+  }
+]

@@ -24,6 +24,10 @@ Docker-Volume `katakana-data` und überlebt Neustarts und Rebuilds.
 - **Statistik** — Level & Elo-Verlauf, Genauigkeit, Lesetempo (pro Kana und
   pro Wort), Streaks, Gojūon-Heatmap deiner Kana-Konfidenz.
 - **Reset mit Mehrfach-Bestätigung** in den Einstellungen.
+- **Eigenes Vokabular** — Basis-Wörterbuch in `words/basic/basic.json`;
+  eigene Listen einfach als `words/additional/*.json` ablegen (bleiben
+  außerhalb von git, landen aber im Docker-Image). Format: siehe
+  [words/additional/README.md](words/additional/README.md).
 
 ## Entwicklung
 

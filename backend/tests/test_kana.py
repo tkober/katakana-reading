@@ -1,7 +1,7 @@
 import pytest
 
 from app.kana import evaluate_word, to_romaji, tokenize
-from app.words import WORDS
+from app.words import load_words
 
 
 # ---------------------------------------------------------------- tokenizer
@@ -94,7 +94,7 @@ def test_extra_characters_not_correct():
 
 def test_all_words_tokenize_and_roundtrip():
     seen = set()
-    for katakana, meaning, level in WORDS:
+    for katakana, meaning, level in load_words():
         assert katakana not in seen, f"duplicate word {katakana}"
         seen.add(katakana)
         assert 1 <= level <= 5

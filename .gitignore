@@ -8,3 +8,4 @@ backend/data/
 *.db
 *.db-wal
 *.db-shm
+words/additional/*.json

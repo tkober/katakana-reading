@@ -1,30 +1,19 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { ApiService } from './api.service';
-import { DictionariesComponent } from './dictionaries.component';
-import { PracticeComponent } from './practice.component';
-import { SettingsComponent } from './settings.component';
-import { StatsComponent } from './stats.component';
-
-type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
 
 @Component({
   selector: 'app-root',
-  imports: [
-    DecimalPipe,
-    PracticeComponent,
-    StatsComponent,
-    DictionariesComponent,
-    SettingsComponent,
-  ],
+  imports: [DecimalPipe, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
     <header class="topbar">
       <div class="topbar-inner">
-        <div class="brand">
+        <a class="brand" routerLink="/practice">
           <span class="brand-kana kana-font">ア</span>
           <span class="brand-name">Katakana Trainer</span>
-        </div>
+        </a>
         @if (api.profile(); as p) {
           <div class="profile">
             <span class="chip chip-level">Level {{ p.level }}</span>
@@ -36,45 +25,15 @@ type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
         }
       </div>
       <nav class="tabs">
-        <button
-          [class.active]="tab() === 'practice'"
-          (click)="tab.set('practice')"
-        >
-          Practice
-        </button>
-        <button [class.active]="tab() === 'stats'" (click)="tab.set('stats')">
-          Stats
-        </button>
-        <button
-          [class.active]="tab() === 'dictionaries'"
-          (click)="tab.set('dictionaries')"
-        >
-          Dictionaries
-        </button>
-        <button
-          [class.active]="tab() === 'settings'"
-          (click)="tab.set('settings')"
-        >
-          Settings
-        </button>
+        <a routerLink="/practice" routerLinkActive="active">Practice</a>
+        <a routerLink="/stats" routerLinkActive="active">Stats</a>
+        <a routerLink="/dictionaries" routerLinkActive="active">Dictionaries</a>
+        <a routerLink="/settings" routerLinkActive="active">Settings</a>
       </nav>
     </header>
 
     <main class="content">
-      @switch (tab()) {
-        @case ('practice') {
-          <app-practice />
-        }
-        @case ('stats') {
-          <app-stats />
-        }
-        @case ('dictionaries') {
-          <app-dictionaries />
-        }
-        @case ('settings') {
-          <app-settings />
-        }
-      }
+      <router-outlet />
     </main>
   `,
   styles: [
@@ -97,6 +56,8 @@ type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
         display: flex;
         align-items: center;
         gap: 10px;
+        text-decoration: none;
+        color: inherit;
       }
       .brand-kana {
         display: inline-flex;
@@ -144,17 +105,15 @@ type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
         display: flex;
         gap: 4px;
       }
-      .tabs button {
-        appearance: none;
-        background: none;
-        border: none;
+      .tabs a {
         border-bottom: 2px solid transparent;
         padding: 8px 14px;
         font-size: 14px;
         color: var(--ink-2);
+        text-decoration: none;
         cursor: pointer;
       }
-      .tabs button.active {
+      .tabs a.active {
         color: var(--ink);
         font-weight: 600;
         border-bottom-color: var(--accent);
@@ -167,7 +126,12 @@ type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
     `,
   ],
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   readonly api = inject(ApiService);
-  readonly tab = signal<Tab>('practice');
+
+  ngOnInit(): void {
+    // Header chips need to be right on any entry route, including a deep
+    // link that never touches practice or stats.
+    this.api.loadProfile().subscribe();
+  }
 }

@@ -178,6 +178,7 @@ def submit_answer(conn: sqlite3.Connection, word_id: int, answer: str,
         "meaning": word["meaning"],
         "katakana": word["katakana"],
         "level": word["level"],
+        "source": word["source"],
         "kana_total": ev.kana_total,
         "kana_correct": ev.kana_correct,
         "tokens": [

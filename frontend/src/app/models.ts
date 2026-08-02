@@ -29,6 +29,7 @@ export interface AnswerResult {
   meaning: string;
   katakana: string;
   level: number;
+  source: string;
   kana_total: number;
   kana_correct: number;
   tokens: TokenResult[];

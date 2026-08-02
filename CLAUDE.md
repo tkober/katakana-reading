@@ -8,7 +8,7 @@ und ein Elo-basiertes Level, und wählt die nächsten Wörter adaptiv danach aus
 ## Architektur
 
 ```
-frontend/   Angular 20 (standalone components, signals, kein Router)
+frontend/   Angular 20 (standalone components, signals, Router)
 backend/    FastAPI + SQLite (stdlib sqlite3), verwaltet mit uv
 words/      Vokabular als JSON: basic/ (in git) + additional/ (*.json gitignored)
 Dockerfile  Multi-Stage: Angular-Build → Python-Image; FastAPI served API + Statics
@@ -58,7 +58,12 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
   Key-Set läuft über eine Temp-Table wegen SQLite-Parameterlimit)
   + Mini-Migrationen (`_migrate`, z. B. source-Spalte) + `reset_all`.
   Basis-Rating: 750 + (Level−1)·250 ± Längen-Nudge (max ±80) → ~690–1810.
-- `api.py` — Routen: `GET /api/word/next`, `POST /api/answer`,
+- `main.py` — App-Setup, Lifespan-Seeding und `SpaStaticFiles`: liefert für
+  unbekannte Pfade `index.html` aus (damit Deep-Links/Reload auf
+  Router-Pfaden funktionieren), lässt `/api/*` aber bei 404.
+- `api.py` — Routen: `GET /api/profile` (schlanker Header-State),
+  `GET /api/word/next`, `POST /api/answer` (Antwort enthält u. a. `source`,
+  wird bei der Auflösung angezeigt),
   `GET /api/stats`, `GET /api/dictionaries` (Zusammensetzung je Source:
   Level-Mix, Ø/Min/Max Kana pro Wort, Rating-Spanne, geübt/Erfolgsquote),
   `GET /api/words` (filter- und seitenweise Wortliste: `source`, `level`,
@@ -76,10 +81,17 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 
 ### Frontend (`frontend/src/app/`)
 
-- `app.component.ts` — Shell mit Tabs (Üben/Statistik/Einstellungen) + Header
-  mit Level/Elo/Streak-Chips (geteiltes Signal in `api.service.ts`).
-- `practice.component.ts` — Übungsansicht: Wort-Karte, Timer, Romaji-Input,
-  Feedback pro Kana-Token (✓/✕), Enter-Flow (prüfen → weiter).
+- `app.component.ts` — Shell: Router-Outlet + Tab-Links (routerLinkActive)
+  und Header mit Level/Elo/Streak-Chips (geteiltes Signal in
+  `api.service.ts`, beim Start über `/api/profile` befüllt, damit die Chips
+  auch bei einem Deep-Link auf `/dictionaries` stimmen).
+- `routes.ts` — Routen + Seitentitel.
+- `practice.component.ts` — Übungsansicht mit explizitem Session-Lebenszyklus
+  (`idle` → `active` → `ended`): Die Session startet **nicht** automatisch,
+  der Timer läuft erst ab dem ersten Wort. „End session" zeigt eine
+  Zusammenfassung (Wörter, Trefferquote, Ø-Zeit, Elo-Delta). Wort-Karte,
+  Timer, Romaji-Input, Feedback pro Kana-Token (✓/✕), Enter-Flow
+  (prüfen → weiter), Herkunfts-Dictionary als Chip bei der Auflösung.
 - `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
   Source-Dictionary), Recent-Tabelle.
@@ -106,7 +118,7 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 # Backend (Port 8000)
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (36: Kana-Auswertung, Roundtrip, Loader, Game-Logik, DB/Seeding, API)
+# Tests (38: Kana-Auswertung, Roundtrip, Loader, Game-Logik, DB/Seeding, API)
 cd backend && uv run pytest
 
 # Frontend-Dev-Server (Port 4200, proxied /api → 8000)
@@ -130,7 +142,10 @@ docker compose up --build -d
   aus den JSON-Files verschwunden sind, werden gelöscht — außer sie wurden
   schon beantwortet (FK auf attempts, Historie bleibt erhalten).
 - Angular: standalone components, neue Control-Flow-Syntax (`@if`/`@for`),
-  inline templates/styles. Kein Router — Tabs sind lokaler State.
+  inline templates/styles. Router mit echten Pfaden (`/practice`, `/stats`,
+  `/dictionaries`, `/settings`) — **deshalb braucht FastAPI den SPA-Fallback
+  in `main.py`**: ohne ihn liefert ein Reload auf `/stats` einen 404.
+  Beim Ändern der Routen daran denken; `/api/*` behält bewusst seine 404.
 
 ## Stand (2026-08-02)
 
@@ -148,6 +163,9 @@ docker compose up --build -d
   Seeding pruned verschwundene Wörter. Lokale Dicts: sap.json (71),
   ai.json (45).
 - Neuer Tab „Dictionaries": Zusammensetzung je Wörterbuch + Wort-Browser.
+- Router eingeführt (bookmarkbare Sections, SPA-Fallback im Backend),
+  Übungssession startet/endet explizit (kein Auto-Start beim Seitenaufruf),
+  Herkunfts-Dictionary wird bei der Auflösung angezeigt.
 
 #### Zur sap.json-Recherche (wichtig für Nachfolger)
 

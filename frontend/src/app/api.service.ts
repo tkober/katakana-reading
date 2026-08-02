@@ -56,6 +56,12 @@ export class ApiService {
     );
   }
 
+  loadProfile(): Observable<Profile> {
+    return this.http
+      .get<Profile>('/api/profile')
+      .pipe(tap((p) => this.profile.set(p)));
+  }
+
   dictionaries(): Observable<DictionariesResponse> {
     return this.http.get<DictionariesResponse>('/api/dictionaries');
   }

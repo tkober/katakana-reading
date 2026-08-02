@@ -66,6 +66,48 @@ def test_words_filtering_and_search(client):
     assert client.get("/api/words", params={"q": "bus"}).json()["total"] == 1
 
 
+def test_profile_endpoint(client):
+    body = client.get("/api/profile").json()
+    assert body["elo"] == 1000.0
+    assert body["level"] >= 1
+    assert body["streak"] == 0
+
+
+def test_answer_reports_source_dictionary(client):
+    word_id = client.get("/api/words", params={"source": "sap"}).json()
+    assert word_id["words"][0]["katakana"] == "ジュール"
+    listing = client.get("/api/words", params={"q": "ジュール"}).json()
+    assert listing["total"] == 1
+
+    # answering reveals which dictionary the word came from
+    all_words = client.get("/api/words").json()["words"]
+    target = next(w for w in all_words if w["katakana"] == "ジュール")
+    ids = client.get("/api/word/next").json()  # ensures the endpoint works
+    assert "word_id" in ids
+    body = client.post(
+        "/api/answer",
+        json={"word_id": _id_of(client, target["katakana"]), "answer": "juuru",
+              "time_ms": 1000},
+    ).json()
+    assert body["source"] == "sap"
+    assert body["correct"] is True
+
+
+def _id_of(client, katakana: str) -> int:
+    """The public API exposes no ids in /api/words, so walk /word/next is not
+    reliable — read it straight from the db the app just seeded."""
+    import os
+    import sqlite3
+
+    conn = sqlite3.connect(os.environ["DB_PATH"])
+    try:
+        return conn.execute(
+            "SELECT id FROM words WHERE katakana = ?", (katakana,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+
 def test_words_pagination_and_generated_fields(client):
     page = client.get("/api/words", params={"limit": 2, "sort": "alpha"}).json()
     assert len(page["words"]) == 2

@@ -37,6 +37,17 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.get("/profile")
+def profile(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
+    """Cheap header state — no need to pull full stats just for the chips."""
+    user = game.get_user(conn)
+    return {
+        "elo": round(user["elo"], 1),
+        "level": game.level_for_elo(user["elo"]),
+        "streak": user["current_streak"],
+    }
+
+
 @router.get("/word/next")
 def next_word(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
     word = game.pick_next_word(conn)

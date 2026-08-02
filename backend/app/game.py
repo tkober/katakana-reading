@@ -8,11 +8,18 @@ from typing import Any
 
 from .kana import evaluate, tokenize
 
-K_USER = 32.0
+# Asymmetric K: climbing is slow, failing hurts — especially failing an
+# easy review word far below your rating.
+K_USER_GAIN = 20.0
+K_USER_LOSS = 36.0
 K_WORD = 16.0
-MIN_LEVEL, MAX_LEVEL = 1, 12
+MIN_LEVEL, MAX_LEVEL = 1, 20
+LEVEL_BASE_ELO = 750.0
+LEVEL_WIDTH = 75.0
 RECENT_WINDOW = 8  # don't repeat the last N answered words
 PROBE_CHANCE = 0.15  # chance to serve a word above the comfort zone
+REVIEW_CHANCE = 0.12  # chance to re-test a word well below the comfort zone
+REVIEW_RANGE = (250.0, 600.0)  # how far below the user's Elo reviews sit
 POOL_RANGE = 160.0  # rating window around the user's Elo
 
 
@@ -21,7 +28,7 @@ def expected_score(ra: float, rb: float) -> float:
 
 
 def level_for_elo(elo: float) -> int:
-    return max(MIN_LEVEL, min(MAX_LEVEL, 1 + int((elo - 750.0) // 100.0)))
+    return max(MIN_LEVEL, min(MAX_LEVEL, 1 + int((elo - LEVEL_BASE_ELO) // LEVEL_WIDTH)))
 
 
 def level_progress(elo: float) -> float:
@@ -29,8 +36,8 @@ def level_progress(elo: float) -> float:
     level = level_for_elo(elo)
     if level >= MAX_LEVEL:
         return 1.0
-    floor = 750.0 + (level - 1) * 100.0
-    return max(0.0, min(1.0, (elo - floor) / 100.0))
+    floor = LEVEL_BASE_ELO + (level - 1) * LEVEL_WIDTH
+    return max(0.0, min(1.0, (elo - floor) / LEVEL_WIDTH))
 
 
 def target_time_ms(kana_count: int) -> int:
@@ -84,11 +91,20 @@ def pick_next_word(conn: sqlite3.Connection) -> sqlite3.Row:
     words = conn.execute("SELECT * FROM words").fetchall()
     fresh = [w for w in words if w["id"] not in recent_ids] or list(words)
 
-    # Occasionally probe above the comfort zone to test the ceiling.
-    if random.random() < PROBE_CHANCE:
+    # Occasionally probe above the comfort zone to test the ceiling, or
+    # re-test far below it (failing those is punished hard by the Elo math).
+    roll = random.random()
+    if roll < PROBE_CHANCE:
         probes = [w for w in fresh if elo + 120 <= w["rating"] <= elo + 400]
         if probes:
             return random.choice(probes)
+    elif roll < PROBE_CHANCE + REVIEW_CHANCE:
+        reviews = [
+            w for w in fresh
+            if elo - REVIEW_RANGE[1] <= w["rating"] <= elo - REVIEW_RANGE[0]
+        ]
+        if reviews:
+            return random.choice(reviews)
 
     pool = [w for w in fresh if abs(w["rating"] - elo) <= POOL_RANGE]
     if len(pool) < 8:
@@ -117,7 +133,8 @@ def submit_answer(conn: sqlite3.Connection, word_id: int, answer: str,
     elo_before = user["elo"]
     score = answer_score(ev.correct, ev.kana_correct, ev.kana_total, time_ms, fast)
     exp = expected_score(elo_before, word["rating"])
-    elo_after = elo_before + K_USER * (score - exp)
+    k_user = K_USER_GAIN if score >= exp else K_USER_LOSS
+    elo_after = elo_before + k_user * (score - exp)
     new_word_rating = word["rating"] + K_WORD * ((1.0 - score) - (1.0 - exp))
 
     streak = user["current_streak"] + 1 if ev.correct else 0

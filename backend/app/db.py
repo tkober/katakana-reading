@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS words (
     romaji TEXT NOT NULL,
     meaning TEXT NOT NULL,
     level INTEGER NOT NULL,
+    source TEXT NOT NULL DEFAULT 'basic',
     rating REAL NOT NULL,
     base_rating REAL NOT NULL,
     times_served INTEGER NOT NULL DEFAULT 0,
@@ -76,11 +77,20 @@ CREATE TABLE IF NOT EXISTS kana_stats (
 def base_rating_for(katakana: str, level: int) -> float:
     """Anchor rating by level, nudged by word length."""
     n_tokens = len(tokenize(katakana))
-    nudge = max(-60, min(60, (n_tokens - 5) * 15))
-    return 800.0 + (level - 1) * 200.0 + nudge
+    nudge = max(-80, min(80, (n_tokens - 5) * 20))
+    return 750.0 + (level - 1) * 250.0 + nudge
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(words)")}
+    if cols and "source" not in cols:
+        conn.execute(
+            "ALTER TABLE words ADD COLUMN source TEXT NOT NULL DEFAULT 'basic'"
+        )
 
 
 def init_db(conn: sqlite3.Connection) -> None:
+    _migrate(conn)
     conn.executescript(SCHEMA)
     conn.execute(
         "INSERT OR IGNORE INTO user_profile (id, elo) VALUES (1, ?)", (START_ELO,)
@@ -92,20 +102,24 @@ def init_db(conn: sqlite3.Connection) -> None:
 def seed_words(conn: sqlite3.Connection) -> None:
     """Insert new dictionary words, refresh metadata of existing ones
     (keeps the dynamically calibrated rating)."""
-    for katakana, meaning, level in load_words():
+    for katakana, meaning, level, source in load_words():
         romaji = to_romaji(katakana)  # raises on invalid kana -> fails fast
         base = base_rating_for(katakana, level)
+        # On base-rating changes (rebalanced formula, level edits) shift the
+        # dynamic rating by the same delta, keeping the learned calibration.
         conn.execute(
             """
-            INSERT INTO words (katakana, romaji, meaning, level, rating, base_rating)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO words (katakana, romaji, meaning, level, source, rating, base_rating)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(katakana) DO UPDATE SET
                 romaji = excluded.romaji,
                 meaning = excluded.meaning,
                 level = excluded.level,
+                source = excluded.source,
+                rating = words.rating + (excluded.base_rating - words.base_rating),
                 base_rating = excluded.base_rating
             """,
-            (katakana, romaji, meaning, level, base, base),
+            (katakana, romaji, meaning, level, source, base, base),
         )
 
 

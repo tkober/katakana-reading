@@ -59,6 +59,15 @@ export interface RecentAttempt {
   created_at: string;
 }
 
+export interface CoverageRow {
+  key: string;
+  total: number;
+  seen: number;
+  served: number;
+  correct: number;
+  success: number | null;
+}
+
 export interface Stats {
   elo: number;
   level: number;
@@ -74,6 +83,10 @@ export interface Stats {
   kana: KanaStat[];
   recent: RecentAttempt[];
   elo_history: number[];
+  coverage: {
+    levels: CoverageRow[];
+    sources: CoverageRow[];
+  };
 }
 
 export interface Profile {

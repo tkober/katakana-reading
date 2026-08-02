@@ -20,12 +20,13 @@ def test_additional_files_extend_and_override(tmp_path, monkeypatch):
         {"katakana": "パン", "meaning": "bread (overridden)", "level": 2},
         {"katakana": "アニメ", "meaning": "anime", "level": 1},
     ])
-    words = {k: (m, lvl) for k, m, lvl in load_words()}
+    words = {k: (m, lvl, src) for k, m, lvl, src in load_words()}
     assert len(words) == 3
-    assert words["バス"] == ("bus", 1)
-    assert words["アニメ"] == ("anime", 1)
+    assert words["バス"] == ("bus", 1, "basic")
+    # source label comes from the file stem for additional files
+    assert words["アニメ"] == ("anime", 1, "movies")
     # later (additional) file wins on duplicates
-    assert words["パン"] == ("bread (overridden)", 2)
+    assert words["パン"] == ("bread (overridden)", 2, "movies")
 
 
 def test_invalid_entry_reports_file(tmp_path, monkeypatch):

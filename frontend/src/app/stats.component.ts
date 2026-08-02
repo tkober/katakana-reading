@@ -87,6 +87,52 @@ import { KanaStat, Stats } from './models';
         }
 
         <div class="panel">
+          <h2>Vocabulary coverage</h2>
+          <div class="coverage-grid">
+            <div>
+              <h3>By level</h3>
+              @for (row of s.coverage.levels; track row.key) {
+                <div class="cov-row">
+                  <span class="cov-label">Level {{ row.key }}</span>
+                  <div class="cov-meter">
+                    <div
+                      class="cov-fill"
+                      [style.width.%]="(row.seen / row.total) * 100"
+                    ></div>
+                  </div>
+                  <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
+                  <span class="cov-rate" [class.dim]="row.success === null">
+                    {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
+                  </span>
+                </div>
+              }
+            </div>
+            <div>
+              <h3>By dictionary</h3>
+              @for (row of s.coverage.sources; track row.key) {
+                <div class="cov-row">
+                  <span class="cov-label">{{ row.key }}</span>
+                  <div class="cov-meter">
+                    <div
+                      class="cov-fill"
+                      [style.width.%]="(row.seen / row.total) * 100"
+                    ></div>
+                  </div>
+                  <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
+                  <span class="cov-rate" [class.dim]="row.success === null">
+                    {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+          <p class="panel-note">
+            Bar = words seen at least once; percentage = success rate of all
+            answers in that group.
+          </p>
+        </div>
+
+        <div class="panel">
           <h2>Kana confidence</h2>
           <app-heatmap [stats]="s.kana" />
         </div>
@@ -196,6 +242,53 @@ import { KanaStat, Stats } from './models';
         font-size: 13px;
         color: var(--muted);
         margin: 12px 0 0;
+      }
+      .coverage-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px 32px;
+      }
+      .coverage-grid h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink-2);
+        margin: 0 0 8px;
+      }
+      .cov-row {
+        display: grid;
+        grid-template-columns: minmax(56px, auto) 1fr auto 44px;
+        align-items: center;
+        gap: 10px;
+        padding: 3px 0;
+        font-size: 13px;
+      }
+      .cov-label {
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+      .cov-meter {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--series-1-track);
+        overflow: hidden;
+        min-width: 60px;
+      }
+      .cov-fill {
+        height: 100%;
+        background: var(--series-1);
+        border-radius: 3px;
+      }
+      .cov-nums {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .cov-rate {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .cov-rate.dim {
+        color: var(--muted);
       }
       .weak-list {
         display: flex;

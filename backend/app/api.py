@@ -110,6 +110,29 @@ def stats(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
             "ORDER BY id DESC LIMIT 60) ORDER BY id"
         )
     ]
+
+    def coverage(group_col: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "key": str(r["k"]),
+                "total": r["total"],
+                "seen": r["seen"],
+                "served": r["served"],
+                "correct": r["correct"],
+                "success": round(r["correct"] / r["served"], 3) if r["served"] else None,
+            }
+            for r in conn.execute(
+                f"""
+                SELECT {group_col} AS k,
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN times_served > 0 THEN 1 ELSE 0 END) AS seen,
+                       COALESCE(SUM(times_served), 0) AS served,
+                       COALESCE(SUM(times_correct), 0) AS correct
+                FROM words GROUP BY {group_col} ORDER BY {group_col}
+                """
+            )
+        ]
+
     return {
         "elo": round(user["elo"], 1),
         "level": game.level_for_elo(user["elo"]),
@@ -125,6 +148,10 @@ def stats(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
         "kana": kana_rows,
         "recent": recent,
         "elo_history": elo_history,
+        "coverage": {
+            "levels": coverage("level"),
+            "sources": coverage("source"),
+        },
     }
 
 

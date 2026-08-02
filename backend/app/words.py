@@ -15,6 +15,9 @@ sorted by path); on duplicate katakana the later file wins, so additional
 files can override base entries. Romaji is never stored in the files — it
 is generated from the tokenizer at seed time (see db.seed_words), so
 dictionary and evaluation can never disagree.
+
+Each word carries a `source` label for coverage stats: "basic" for
+anything under basic/, otherwise the file stem (sap.json -> "sap").
 """
 
 from __future__ import annotations
@@ -41,10 +44,11 @@ def _word_files(root: Path) -> list[Path]:
     return sorted(root.rglob("*.json"), key=sort_key)
 
 
-def load_words() -> list[tuple[str, str, int]]:
+def load_words() -> list[tuple[str, str, int, str]]:
     root = words_dir()
-    merged: dict[str, tuple[str, str, int]] = {}
+    merged: dict[str, tuple[str, str, int, str]] = {}
     for f in _word_files(root):
+        source = "basic" if "basic" in f.relative_to(root).parts else f.stem
         try:
             entries = json.loads(f.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
@@ -68,7 +72,7 @@ def load_words() -> list[tuple[str, str, int]]:
                     f"{f} entry {i} ({entry.get('katakana', '?')}): "
                     "katakana/meaning must be non-empty strings, level an int 1-5"
                 )
-            merged[katakana] = (katakana, meaning, level)
+            merged[katakana] = (katakana, meaning, level, source)
     if not merged:
         raise ValueError(f"no vocabulary found under {root}")
     return list(merged.values())

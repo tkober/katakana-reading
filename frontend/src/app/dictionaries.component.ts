@@ -33,11 +33,12 @@ const PAGE_SIZE = 50;
                   }
                 }
               </div>
-              <div class="stack-labels">
+              <div class="level-table">
                 @for (lv of d.levels; track lv.level) {
-                  <span class="stack-label" [class.zero]="lv.count === 0">
-                    L{{ lv.level }} {{ lv.count }}
-                  </span>
+                  <div class="level-col" [class.zero]="lv.count === 0">
+                    <span class="level-name">L{{ lv.level }}</span>
+                    <span class="level-count">{{ lv.count }}</span>
+                  </div>
                 }
               </div>
 
@@ -231,18 +232,32 @@ const PAGE_SIZE = 50;
         display: block;
         min-width: 3px;
       }
-      .stack-labels {
+      /* Two rows in five fixed columns: the vertical pairing groups a level
+         with its count, so the eye never has to find the boundaries. */
+      .level-table {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 2px;
+        margin-top: 7px;
+        text-align: center;
+      }
+      .level-col {
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 6px;
-        font-size: 11px;
-        color: var(--ink-2);
+        flex-direction: column;
+        line-height: 1.25;
+      }
+      .level-name {
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .level-count {
+        font-size: 14px;
+        font-weight: 600;
         font-variant-numeric: tabular-nums;
       }
-      .stack-label.zero {
+      .level-col.zero .level-count {
         color: var(--muted);
-        opacity: 0.6;
+        font-weight: 400;
       }
       .facts {
         margin: 12px 0 0;

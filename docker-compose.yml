@@ -1,0 +1,11 @@
+services:
+  katakana:
+    build: .
+    ports:
+      - "8080:8000"
+    volumes:
+      - katakana-data:/data
+    restart: unless-stopped
+
+volumes:
+  katakana-data:

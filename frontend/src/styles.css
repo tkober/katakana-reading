@@ -1,0 +1,68 @@
+/* Design tokens — light/dark, chart roles written against CSS custom props. */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #4a3aa7;        /* practice card / brand */
+  --accent-ink: #ffffff;
+  --series-1: #2a78d6;      /* sparkline, meters */
+  --series-1-track: #cde2fb;
+  --good: #0ca30c;
+  --good-text: #006300;
+  --critical: #d03b3b;
+  --good-wash: rgba(12, 163, 12, 0.12);
+  --critical-wash: rgba(208, 59, 59, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --accent: #5b49c7;
+    --accent-ink: #ffffff;
+    --series-1: #3987e5;
+    --series-1-track: #104281;
+    --good: #0ca30c;
+    --good-text: #0ca30c;
+    --critical: #e66767;
+    --good-wash: rgba(12, 163, 12, 0.18);
+    --critical-wash: rgba(230, 103, 103, 0.18);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+
+button {
+  font: inherit;
+}
+
+.kana-font {
+  font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic',
+    'Noto Sans JP', 'Meiryo', sans-serif;
+}

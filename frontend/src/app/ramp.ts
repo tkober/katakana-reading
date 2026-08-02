@@ -49,3 +49,16 @@ export function rampStep(value: number): RampStep {
   );
   return STEPS[idx];
 }
+
+/** Ordinal scale for the five difficulty levels — same hue, but the step
+ *  nearest the surface still clears 2:1, so a thin stacked segment never
+ *  dissolves into the background (a continuous ramp may fade to nothing,
+ *  an ordinal one may not). Level 1 → index 0. */
+const LEVELS_LIGHT = ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#0d366b'];
+const LEVELS_DARK = ['#184f95', '#1c5cab', '#2a78d6', '#5598e7', '#86b6ef'];
+
+export const LEVEL_COLORS = prefersDark ? LEVELS_DARK : LEVELS_LIGHT;
+
+export function levelColor(level: number): string {
+  return LEVEL_COLORS[Math.min(LEVEL_COLORS.length - 1, Math.max(0, level - 1))];
+}

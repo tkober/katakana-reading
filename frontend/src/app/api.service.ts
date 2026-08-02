@@ -1,8 +1,15 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 
-import { AnswerResult, NextWord, Profile, Stats } from './models';
+import {
+  AnswerResult,
+  DictionariesResponse,
+  NextWord,
+  Profile,
+  Stats,
+  WordsResponse,
+} from './models';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -47,6 +54,27 @@ export class ApiService {
         this.profile.set({ elo: s.elo, level: s.level, streak: s.current_streak }),
       ),
     );
+  }
+
+  dictionaries(): Observable<DictionariesResponse> {
+    return this.http.get<DictionariesResponse>('/api/dictionaries');
+  }
+
+  words(filters: {
+    source?: string;
+    level?: number;
+    q?: string;
+    sort?: string;
+    limit?: number;
+    offset?: number;
+  }): Observable<WordsResponse> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get<WordsResponse>('/api/words', { params });
   }
 
   reset(): Observable<{ status: string }> {

@@ -59,8 +59,11 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
   + Mini-Migrationen (`_migrate`, z. B. source-Spalte) + `reset_all`.
   Basis-Rating: 750 + (Level−1)·250 ± Längen-Nudge (max ±80) → ~690–1810.
 - `api.py` — Routen: `GET /api/word/next`, `POST /api/answer`,
-  `GET /api/stats`, `POST /api/reset` (verlangt `{"confirm": "RESET"}`),
-  `GET /api/health`.
+  `GET /api/stats`, `GET /api/dictionaries` (Zusammensetzung je Source:
+  Level-Mix, Ø/Min/Max Kana pro Wort, Rating-Spanne, geübt/Erfolgsquote),
+  `GET /api/words` (filter- und seitenweise Wortliste: `source`, `level`,
+  `q` über katakana/romaji/meaning, `sort`, `limit`≤500, `offset`),
+  `POST /api/reset` (verlangt `{"confirm": "RESET"}`), `GET /api/health`.
 
 ### Datenmodell (SQLite)
 
@@ -80,14 +83,21 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 - `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
   Source-Dictionary), Recent-Tabelle.
+- `dictionaries.component.ts` — Tab „Dictionaries": pro Wörterbuch eine Karte
+  (Level-Verteilung als gestapelter Balken mit 2px-Lücken + Zahlen darunter,
+  Wortlänge, Rating-Spanne, geübt, Erfolgsquote) + filterbarer Wort-Browser
+  (Dictionary/Level/Suche/Sortierung, 50 pro Seite, Suche entprellt).
 - `heatmap.component.ts` — Gojūon-Grid + Chips für Kombinationen (キャ, ファ, ッ,
   ー …), nutzt die geteilte Skala aus `ramp.ts`.
 - `ramp.ts` — sequenzielle Ein-Farb-Skala (blau, hell→dunkel = mehr; dark mode:
   Ramp umgekehrt, damit „mehr“ immer vom Hintergrund wegläuft). Jede Stufe
   bringt ihre Label-Tinte mit (≥ 5:1 auf der Füllung). Genutzt von der
   Kana-Heatmap **und** den Success-Rate-Kacheln der Vocabulary-Coverage —
-  gleiche Bedeutung, gleiche Farbsprache. Farben stammen aus der validierten
-  Referenzpalette des dataviz-Skills — bei Änderungen dort validieren.
+  gleiche Bedeutung, gleiche Farbsprache. Zusätzlich `LEVEL_COLORS` /
+  `levelColor()`: **ordinale** 5-Stufen-Skala für die Level 1–5 (eigene
+  Stufen, weil ordinal ≥2:1 zur Surface halten muss — ein dünnes Segment im
+  Stapelbalken darf nicht im Hintergrund verschwinden). Farben stammen aus
+  der validierten Referenzpalette des dataviz-Skills — dort validieren.
 - Light + Dark Mode über CSS Custom Properties in `styles.css`.
 
 ## Entwicklung
@@ -96,7 +106,7 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 # Backend (Port 8000)
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (33 Stück: Kana-Auswertung, Roundtrip, Loader, Game-Logik, DB/Seeding)
+# Tests (36: Kana-Auswertung, Roundtrip, Loader, Game-Logik, DB/Seeding, API)
 cd backend && uv run pytest
 
 # Frontend-Dev-Server (Port 4200, proxied /api → 8000)
@@ -135,9 +145,21 @@ docker compose up --build -d
   asymmetrisches K (20/36), Review-Proben unterhalb der Komfortzone,
   Coverage-Statistik pro Level/Source (words.source-Spalte, migriert).
 - Success-Rate der Coverage als Heatmap-Kachel (geteilte `ramp.ts`);
-  Seeding pruned verschwundene Wörter. Lokale Dicts: sap.json (83, echte
-  SAP-Produkt-/Data-/AI-/Cloud-Begriffe aus japanischen SAP-Quellen),
+  Seeding pruned verschwundene Wörter. Lokale Dicts: sap.json (71),
   ai.json (45).
+- Neuer Tab „Dictionaries": Zusammensetzung je Wörterbuch + Wort-Browser.
+
+#### Zur sap.json-Recherche (wichtig für Nachfolger)
+
+SAP Japan schreibt **Produktnamen lateinisch** („Joule", „SAP BTP",
+„S/4HANA"); Katakana erscheint nur als einmalige Aussprachehilfe in
+Klammern (belegt: 「Joule（ジュール）」, 「SAP Datasphere（データスフィア）」).
+Konstruierte Voll-Katakana-Formen wurden deshalb wieder entfernt (u. a.
+ビジネスエーアイ, ライズウィズサップ, オートノマスエンタープライズ — SAP JP
+nutzt 自律型エンタープライズ). Auch „AI" bleibt im Fließtext lateinisch
+(エージェンティックAI, AIエージェント). Regel für neue Einträge: nur
+aufnehmen, was **wörtlich als Katakana** in japanischen Quellen steht,
+nicht was plausibel klingt.
 
 ### Ideen / offen
 

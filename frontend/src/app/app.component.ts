@@ -2,15 +2,22 @@ import { DecimalPipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 
 import { ApiService } from './api.service';
+import { DictionariesComponent } from './dictionaries.component';
 import { PracticeComponent } from './practice.component';
 import { SettingsComponent } from './settings.component';
 import { StatsComponent } from './stats.component';
 
-type Tab = 'practice' | 'stats' | 'settings';
+type Tab = 'practice' | 'stats' | 'dictionaries' | 'settings';
 
 @Component({
   selector: 'app-root',
-  imports: [DecimalPipe, PracticeComponent, StatsComponent, SettingsComponent],
+  imports: [
+    DecimalPipe,
+    PracticeComponent,
+    StatsComponent,
+    DictionariesComponent,
+    SettingsComponent,
+  ],
   template: `
     <header class="topbar">
       <div class="topbar-inner">
@@ -39,6 +46,12 @@ type Tab = 'practice' | 'stats' | 'settings';
           Stats
         </button>
         <button
+          [class.active]="tab() === 'dictionaries'"
+          (click)="tab.set('dictionaries')"
+        >
+          Dictionaries
+        </button>
+        <button
           [class.active]="tab() === 'settings'"
           (click)="tab.set('settings')"
         >
@@ -54,6 +67,9 @@ type Tab = 'practice' | 'stats' | 'settings';
         }
         @case ('stats') {
           <app-stats />
+        }
+        @case ('dictionaries') {
+          <app-dictionaries />
         }
         @case ('settings') {
           <app-settings />

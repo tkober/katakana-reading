@@ -89,6 +89,50 @@ export interface Stats {
   };
 }
 
+export interface LevelCount {
+  level: number;
+  count: number;
+}
+
+export interface DictionaryInfo {
+  source: string;
+  total: number;
+  seen: number;
+  served: number;
+  correct: number;
+  success: number | null;
+  levels: LevelCount[];
+  avg_kana: number;
+  min_kana: number;
+  max_kana: number;
+  rating_min: number;
+  rating_max: number;
+}
+
+export interface DictionariesResponse {
+  dictionaries: DictionaryInfo[];
+  all: DictionaryInfo | null;
+}
+
+export interface WordRow {
+  katakana: string;
+  romaji: string;
+  meaning: string;
+  level: number;
+  source: string;
+  rating: number;
+  times_served: number;
+  times_correct: number;
+  kana_count: number;
+}
+
+export interface WordsResponse {
+  total: number;
+  offset: number;
+  limit: number;
+  words: WordRow[];
+}
+
 export interface Profile {
   elo: number;
   level: number;

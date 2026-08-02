@@ -155,6 +155,112 @@ def stats(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+@router.get("/dictionaries")
+def dictionaries(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
+    """Composition of each vocabulary file: size, level mix, word length,
+    rating span and how much of it has been practiced."""
+    rows = conn.execute(
+        "SELECT katakana, source, level, rating, times_served, times_correct FROM words"
+    ).fetchall()
+
+    buckets: dict[str, list[sqlite3.Row]] = {}
+    for r in rows:
+        buckets.setdefault(r["source"], []).append(r)
+
+    def summarize(name: str, items: list[sqlite3.Row]) -> dict[str, Any]:
+        kana_counts = [len(tokenize(r["katakana"])) for r in items]
+        served = sum(r["times_served"] for r in items)
+        correct = sum(r["times_correct"] for r in items)
+        seen = sum(1 for r in items if r["times_served"] > 0)
+        by_level = {lvl: 0 for lvl in range(1, 6)}
+        for r in items:
+            by_level[r["level"]] = by_level.get(r["level"], 0) + 1
+        return {
+            "source": name,
+            "total": len(items),
+            "seen": seen,
+            "served": served,
+            "correct": correct,
+            "success": round(correct / served, 3) if served else None,
+            "levels": [
+                {"level": lvl, "count": n} for lvl, n in sorted(by_level.items())
+            ],
+            "avg_kana": round(sum(kana_counts) / len(kana_counts), 1) if kana_counts else 0,
+            "min_kana": min(kana_counts, default=0),
+            "max_kana": max(kana_counts, default=0),
+            "rating_min": round(min((r["rating"] for r in items), default=0)),
+            "rating_max": round(max((r["rating"] for r in items), default=0)),
+        }
+
+    dicts = [summarize(name, items) for name, items in sorted(buckets.items())]
+    return {
+        "dictionaries": dicts,
+        "all": summarize("all", rows) if rows else None,
+    }
+
+
+@router.get("/words")
+def words(
+    source: str | None = None,
+    level: int | None = None,
+    q: str | None = None,
+    sort: str = "level",
+    limit: int = 100,
+    offset: int = 0,
+    conn: sqlite3.Connection = Depends(get_db),
+) -> dict[str, Any]:
+    """Browsable word list with filters — for inspecting a dictionary."""
+    where: list[str] = []
+    params: list[Any] = []
+    if source:
+        where.append("source = ?")
+        params.append(source)
+    if level is not None:
+        where.append("level = ?")
+        params.append(level)
+    if q:
+        where.append("(katakana LIKE ? OR romaji LIKE ? OR meaning LIKE ?)")
+        params += [f"%{q}%"] * 3
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    order = {
+        "level": "level ASC, rating ASC, katakana ASC",
+        "rating": "rating DESC, katakana ASC",
+        "served": "times_served DESC, katakana ASC",
+        "alpha": "katakana ASC",
+    }.get(sort, "level ASC, rating ASC, katakana ASC")
+
+    total = conn.execute(f"SELECT COUNT(*) FROM words {clause}", params).fetchone()[0]
+    limit = max(1, min(limit, 500))
+    rows = conn.execute(
+        f"""
+        SELECT katakana, romaji, meaning, level, source, rating,
+               times_served, times_correct
+        FROM words {clause} ORDER BY {order} LIMIT ? OFFSET ?
+        """,
+        [*params, limit, max(0, offset)],
+    ).fetchall()
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "words": [
+            {
+                "katakana": r["katakana"],
+                "romaji": r["romaji"],
+                "meaning": r["meaning"],
+                "level": r["level"],
+                "source": r["source"],
+                "rating": round(r["rating"]),
+                "times_served": r["times_served"],
+                "times_correct": r["times_correct"],
+                "kana_count": len(tokenize(r["katakana"])),
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.post("/reset")
 def reset(body: ResetIn, conn: sqlite3.Connection = Depends(get_db)) -> dict[str, str]:
     if body.confirm != "RESET":

@@ -4,6 +4,8 @@ dist/
 .venv/
 __pycache__/
 .pytest_cache/
+.env
+# leftovers from the SQLite era, kept ignored so an old checkout stays clean
 backend/data/
 *.db
 *.db-wal

@@ -1,77 +1,179 @@
-"""SQLite persistence. Single global user, everything in one file."""
+"""PostgreSQL persistence: ORM models, engines and vocabulary seeding.
+
+Single global user, so ``user_profile`` holds exactly one row (id = 1).
+
+Two roles are used (see :mod:`app.config`): the *owner* role runs DDL and the
+startup seeding, the *app* role serves every request. The app role's access to
+the owner-created tables comes from server-side ``ALTER DEFAULT PRIVILEGES``
+(see ``dbeaver/grant_privileges.sql``), so no GRANT is issued from here.
+"""
 
 from __future__ import annotations
 
-import os
-import sqlite3
-from pathlib import Path
+import logging
+from collections.abc import AsyncIterator, Iterable, Sequence
+from datetime import datetime
+from typing import Any
 
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    delete,
+    func,
+    select,
+    update,
+)
+from sqlalchemy.dialects.postgresql import JSONB, insert
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from .config import app_database_url, owner_database_url
 from .kana import to_romaji, tokenize
-from .words import load_words
+from .words import WordEntry, load_words, validate_entries
+
+log = logging.getLogger(__name__)
 
 START_ELO = 1000.0
+UPSERT_CHUNK = 500  # rows per INSERT ... ON CONFLICT (keeps the bind count sane)
 
 
-def db_path() -> str:
-    return os.environ.get("DB_PATH", str(Path(__file__).resolve().parent.parent / "data" / "katakana.db"))
+class Base(DeclarativeBase):
+    pass
 
 
-def get_conn() -> sqlite3.Connection:
-    path = db_path()
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+class UserProfile(Base):
+    __tablename__ = "user_profile"
+    __table_args__ = (CheckConstraint("id = 1", name="user_profile_single_row"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    elo: Mapped[float] = mapped_column(Float, nullable=False)
+    current_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    best_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS user_profile (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    elo REAL NOT NULL,
-    current_streak INTEGER NOT NULL DEFAULT 0,
-    best_streak INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+class Word(Base):
+    __tablename__ = "words"
 
-CREATE TABLE IF NOT EXISTS words (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    katakana TEXT NOT NULL UNIQUE,
-    romaji TEXT NOT NULL,
-    meaning TEXT NOT NULL,
-    level INTEGER NOT NULL,
-    source TEXT NOT NULL DEFAULT 'basic',
-    rating REAL NOT NULL,
-    base_rating REAL NOT NULL,
-    times_served INTEGER NOT NULL DEFAULT 0,
-    times_correct INTEGER NOT NULL DEFAULT 0
-);
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    katakana: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    romaji: Mapped[str] = mapped_column(String, nullable=False)
+    meaning: Mapped[str] = mapped_column(String, nullable=False)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False, server_default="basic")
+    rating: Mapped[float] = mapped_column(Float, nullable=False)
+    base_rating: Mapped[float] = mapped_column(Float, nullable=False)
+    times_served: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    times_correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-CREATE TABLE IF NOT EXISTS attempts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id INTEGER NOT NULL REFERENCES words(id),
-    answer TEXT NOT NULL,
-    correct INTEGER NOT NULL,
-    kana_total INTEGER NOT NULL,
-    kana_correct INTEGER NOT NULL,
-    time_ms INTEGER NOT NULL,
-    elo_before REAL NOT NULL,
-    elo_after REAL NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
-CREATE INDEX IF NOT EXISTS idx_attempts_created ON attempts(created_at);
+class Attempt(Base):
+    __tablename__ = "attempts"
+    __table_args__ = (Index("idx_attempts_created", "created_at"),)
 
-CREATE TABLE IF NOT EXISTS kana_stats (
-    kana TEXT PRIMARY KEY,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    correct INTEGER NOT NULL DEFAULT 0,
-    ewma REAL NOT NULL DEFAULT 0.5,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-"""
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    word_id: Mapped[int] = mapped_column(ForeignKey("words.id"), nullable=False)
+    answer: Mapped[str] = mapped_column(String, nullable=False)
+    correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    kana_total: Mapped[int] = mapped_column(Integer, nullable=False)
+    kana_correct: Mapped[int] = mapped_column(Integer, nullable=False)
+    time_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    elo_before: Mapped[float] = mapped_column(Float, nullable=False)
+    elo_after: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class KanaStat(Base):
+    """One row per *token* (キャ is its own key, not キ + ャ)."""
+
+    __tablename__ = "kana_stats"
+
+    kana: Mapped[str] = mapped_column(String, primary_key=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    correct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ewma: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class Dictionary(Base):
+    """A vocabulary list uploaded through the UI.
+
+    The image only ships the git-tracked ``basic`` file, so private vocabulary
+    lives here instead: the raw (validated) JSON is kept verbatim, and every
+    seeding run merges it on top of the file dictionaries. File-based sources
+    have no row here — that absence is what marks a dictionary as "file".
+    """
+
+    __tablename__ = "dictionaries"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    entries: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+# --- engines ---------------------------------------------------------------
+
+_engine: AsyncEngine | None = None
+_sessionmaker: async_sessionmaker[AsyncSession] | None = None
+
+
+def get_engine() -> AsyncEngine:
+    """The request-time engine (app role), created on first use."""
+    global _engine, _sessionmaker
+    if _engine is None:
+        _engine = create_async_engine(app_database_url(), future=True)
+        _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)
+    return _engine
+
+
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    get_engine()
+    assert _sessionmaker is not None
+    return _sessionmaker
+
+
+async def reset_engines() -> None:
+    """Drop the cached engine so the next use re-reads the configuration.
+
+    Production never needs this; the tests do, because they point the process
+    at a throwaway database between cases.
+    """
+    global _engine, _sessionmaker
+    if _engine is not None:
+        await _engine.dispose()
+    _engine = None
+    _sessionmaker = None
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency: one app-role session per request."""
+    async with get_sessionmaker()() as session:
+        yield session
+
+
+# --- schema + seeding ------------------------------------------------------
 
 
 def base_rating_for(katakana: str, level: int) -> float:
@@ -81,83 +183,169 @@ def base_rating_for(katakana: str, level: int) -> float:
     return 750.0 + (level - 1) * 250.0 + nudge
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(words)")}
-    if cols and "source" not in cols:
-        conn.execute(
-            "ALTER TABLE words ADD COLUMN source TEXT NOT NULL DEFAULT 'basic'"
-        )
+async def init_db() -> None:
+    """Create the schema and refresh the vocabulary (run on startup).
+
+    DDL requires the owner role, so this opens a short-lived owner connection.
+    Seeding rides along on it: it is maintenance, not request work.
+    """
+    owner_engine = create_async_engine(owner_database_url(), future=True)
+    try:
+        async with owner_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        async with async_sessionmaker(owner_engine, expire_on_commit=False)() as session:
+            await ensure_profile(session)
+            await seed_words(session)
+            await session.commit()
+    finally:
+        await owner_engine.dispose()
 
 
-def init_db(conn: sqlite3.Connection) -> None:
-    _migrate(conn)
-    conn.executescript(SCHEMA)
-    conn.execute(
-        "INSERT OR IGNORE INTO user_profile (id, elo) VALUES (1, ?)", (START_ELO,)
+async def ensure_profile(session: AsyncSession) -> None:
+    await session.execute(
+        insert(UserProfile)
+        .values(id=1, elo=START_ELO)
+        .on_conflict_do_nothing(index_elements=[UserProfile.id])
     )
-    seed_words(conn)
-    conn.commit()
 
 
-def seed_words(conn: sqlite3.Connection) -> None:
-    """Insert new dictionary words, refresh metadata of existing ones
-    (keeps the dynamically calibrated rating), and drop words that vanished
-    from the JSON files."""
-    words = load_words()
-    for katakana, meaning, level, source in words:
-        romaji = to_romaji(katakana)  # raises on invalid kana -> fails fast
-        base = base_rating_for(katakana, level)
+async def desired_words(session: AsyncSession) -> list[WordEntry]:
+    """The vocabulary the database should hold: files first, uploads on top.
+
+    A stored upload is re-validated here rather than trusted: entries that no
+    longer parse are skipped with a log line, so one bad row cannot stop the
+    app from booting.
+    """
+    merged = {w.katakana: w for w in load_words()}
+    rows = (
+        await session.execute(select(Dictionary).order_by(Dictionary.name))
+    ).scalars()
+    for row in rows:
+        entries, errors = validate_entries(row.entries, row.name)
+        if errors:
+            log.warning(
+                "dictionary %r: skipping %d invalid entr%s (%s)",
+                row.name, len(errors), "y" if len(errors) == 1 else "ies",
+                "; ".join(errors[:3]),
+            )
+        for entry in entries:
+            merged[entry.katakana] = entry
+    return list(merged.values())
+
+
+async def seed_words(session: AsyncSession) -> None:
+    """Insert new words, refresh the metadata of existing ones (keeping their
+    calibrated rating) and drop the ones that vanished."""
+    words = await desired_words(session)
+    values = [
+        {
+            "katakana": w.katakana,
+            "romaji": to_romaji(w.katakana),  # generated, never hand-maintained
+            "meaning": w.meaning,
+            "level": w.level,
+            "source": w.source,
+            "rating": base_rating_for(w.katakana, w.level),
+            "base_rating": base_rating_for(w.katakana, w.level),
+        }
+        for w in words
+    ]
+    for chunk in _chunks(values, UPSERT_CHUNK):
+        stmt = insert(Word).values(chunk)
         # On base-rating changes (rebalanced formula, level edits) shift the
         # dynamic rating by the same delta, keeping the learned calibration.
-        conn.execute(
-            """
-            INSERT INTO words (katakana, romaji, meaning, level, source, rating, base_rating)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(katakana) DO UPDATE SET
-                romaji = excluded.romaji,
-                meaning = excluded.meaning,
-                level = excluded.level,
-                source = excluded.source,
-                rating = words.rating + (excluded.base_rating - words.base_rating),
-                base_rating = excluded.base_rating
-            """,
-            (katakana, romaji, meaning, level, source, base, base),
+        await session.execute(
+            stmt.on_conflict_do_update(
+                index_elements=[Word.katakana],
+                set_={
+                    "romaji": stmt.excluded.romaji,
+                    "meaning": stmt.excluded.meaning,
+                    "level": stmt.excluded.level,
+                    "source": stmt.excluded.source,
+                    "rating": Word.rating
+                    + (stmt.excluded.base_rating - Word.base_rating),
+                    "base_rating": stmt.excluded.base_rating,
+                },
+            )
         )
-    prune_words(conn, {k for k, _, _, _ in words})
+    await prune_words(session, {w.katakana for w in words})
 
 
-def prune_words(conn: sqlite3.Connection, keep: set[str]) -> int:
-    """Remove words no longer present in the JSON files.
+def _chunks(rows: Sequence[dict[str, Any]], size: int) -> Iterable[Sequence[dict]]:
+    for i in range(0, len(rows), size):
+        yield rows[i : i + size]
 
-    Words that were already answered are kept regardless — attempts
-    reference them, and deleting would erase answer history. Returns how
-    many rows were removed. A temp table carries the key set so the delete
-    never runs into SQLite's bound-parameter limit.
+
+async def prune_words(session: AsyncSession, keep: set[str]) -> int:
+    """Remove words that are no longer in any dictionary.
+
+    Words that were already answered stay regardless — ``attempts`` references
+    them, and deleting would erase the answer history. Returns the row count.
     """
-    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _seed_keys (katakana TEXT PRIMARY KEY)")
-    conn.execute("DELETE FROM _seed_keys")
-    conn.executemany("INSERT OR IGNORE INTO _seed_keys VALUES (?)", [(k,) for k in keep])
-    cur = conn.execute(
-        """
-        DELETE FROM words
-        WHERE katakana NOT IN (SELECT katakana FROM _seed_keys)
-          AND id NOT IN (SELECT DISTINCT word_id FROM attempts)
-        """
+    result = await session.execute(
+        delete(Word).where(
+            Word.katakana.notin_(keep),
+            Word.id.notin_(select(Attempt.word_id).distinct()),
+        )
     )
-    conn.execute("DROP TABLE _seed_keys")
-    return cur.rowcount
+    return result.rowcount or 0
 
 
-def reset_all(conn: sqlite3.Connection) -> None:
-    """Wipe all progress: attempts, kana stats, streaks, Elo, word ratings."""
-    conn.execute("DELETE FROM attempts")
-    conn.execute("DELETE FROM kana_stats")
-    conn.execute(
-        "UPDATE user_profile SET elo = ?, current_streak = 0, best_streak = 0, "
-        "updated_at = datetime('now') WHERE id = 1",
-        (START_ELO,),
+async def save_dictionary(
+    session: AsyncSession, name: str, entries: list[dict[str, Any]]
+) -> None:
+    """Store (or replace) an uploaded dictionary and fold it into the words."""
+    stmt = insert(Dictionary).values(name=name, entries=entries)
+    await session.execute(
+        stmt.on_conflict_do_update(
+            index_elements=[Dictionary.name],
+            set_={"entries": stmt.excluded.entries, "uploaded_at": func.now()},
+        )
     )
-    conn.execute(
-        "UPDATE words SET rating = base_rating, times_served = 0, times_correct = 0"
+    await seed_words(session)
+    await session.commit()
+
+
+async def delete_dictionary(session: AsyncSession, name: str) -> int:
+    """Drop an uploaded dictionary; returns how many of its words went with it.
+
+    Answered words survive (see :func:`prune_words`) — the attempt history is
+    worth more than a tidy word list.
+    """
+    result = await session.execute(delete(Dictionary).where(Dictionary.name == name))
+    if not result.rowcount:
+        raise KeyError(name)
+    before = await session.scalar(
+        select(func.count()).select_from(Word).where(Word.source == name)
     )
-    conn.commit()
+    await seed_words(session)
+    after = await session.scalar(
+        select(func.count()).select_from(Word).where(Word.source == name)
+    )
+    await session.commit()
+    return (before or 0) - (after or 0)
+
+
+async def uploaded_dictionaries(session: AsyncSession) -> dict[str, datetime]:
+    """Name -> upload time, for telling uploaded dictionaries from file ones."""
+    rows = await session.execute(select(Dictionary.name, Dictionary.uploaded_at))
+    return {name: uploaded_at for name, uploaded_at in rows}
+
+
+async def reset_all(session: AsyncSession) -> None:
+    """Wipe all progress: attempts, kana stats, streaks, Elo, word ratings.
+
+    Uploaded dictionaries are vocabulary, not progress — they stay.
+    """
+    await session.execute(delete(Attempt))
+    await session.execute(delete(KanaStat))
+    await session.execute(
+        update(UserProfile)
+        .where(UserProfile.id == 1)
+        .values(
+            elo=START_ELO, current_streak=0, best_streak=0, updated_at=func.now()
+        )
+    )
+    await session.execute(
+        update(Word).values(rating=Word.base_rating, times_served=0, times_correct=0)
+    )
+    await session.commit()

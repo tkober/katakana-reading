@@ -4,10 +4,12 @@ import { Observable, tap } from 'rxjs';
 
 import {
   AnswerResult,
+  DeleteResult,
   DictionariesResponse,
   NextWord,
   Profile,
   Stats,
+  UploadResult,
   WordsResponse,
 } from './models';
 
@@ -64,6 +66,16 @@ export class ApiService {
 
   dictionaries(): Observable<DictionariesResponse> {
     return this.http.get<DictionariesResponse>('/api/dictionaries');
+  }
+
+  /** Store a vocabulary list in the database. All-or-nothing: the backend
+   *  rejects the whole file if a single entry doesn't validate. */
+  uploadDictionary(name: string, entries: unknown): Observable<UploadResult> {
+    return this.http.post<UploadResult>('/api/dictionaries', { name, entries });
+  }
+
+  deleteDictionary(source: string): Observable<DeleteResult> {
+    return this.http.delete<DeleteResult>(`/api/dictionaries/${encodeURIComponent(source)}`);
   }
 
   words(filters: {

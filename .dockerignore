@@ -1,3 +1,8 @@
+# Build context for backend/Dockerfile — the repo root, because words/ has to
+# ship with the backend image. The frontend has its own context and ignore file.
+frontend
+dev
+dbeaver
 **/node_modules
 **/dist
 **/.venv

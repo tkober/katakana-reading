@@ -52,9 +52,12 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 - `db.py` — Schema + Seeding (Upsert: Meaning/Level/Source werden
   aktualisiert; ändert sich das base_rating — z. B. durch Rebalancing der
   Formel — wird das dynamische Rating um dieselbe Differenz verschoben,
-  die gelernte Kalibrierung bleibt erhalten) + Mini-Migrationen
-  (`_migrate`, z. B. source-Spalte) + `reset_all`. Basis-Rating:
-  750 + (Level−1)·250 ± Längen-Nudge (max ±80) → ~690–1810.
+  die gelernte Kalibrierung bleibt erhalten) + `prune_words` (entfernt
+  Wörter, die nicht mehr in den JSON-Files stehen, sofern sie noch nie
+  beantwortet wurden — sonst würde die Antwort-Historie mit gelöscht;
+  Key-Set läuft über eine Temp-Table wegen SQLite-Parameterlimit)
+  + Mini-Migrationen (`_migrate`, z. B. source-Spalte) + `reset_all`.
+  Basis-Rating: 750 + (Level−1)·250 ± Längen-Nudge (max ±80) → ~690–1810.
 - `api.py` — Routen: `GET /api/word/next`, `POST /api/answer`,
   `GET /api/stats`, `POST /api/reset` (verlangt `{"confirm": "RESET"}`),
   `GET /api/health`.
@@ -78,8 +81,12 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
   Source-Dictionary), Recent-Tabelle.
 - `heatmap.component.ts` — Gojūon-Grid + Chips für Kombinationen (キャ, ファ, ッ,
-  ー …), sequenzielle Ein-Farb-Skala (blau; dark mode: Ramp umgekehrt, damit
-  „mehr“ immer vom Hintergrund wegläuft). Farben stammen aus der validierten
+  ー …), nutzt die geteilte Skala aus `ramp.ts`.
+- `ramp.ts` — sequenzielle Ein-Farb-Skala (blau, hell→dunkel = mehr; dark mode:
+  Ramp umgekehrt, damit „mehr“ immer vom Hintergrund wegläuft). Jede Stufe
+  bringt ihre Label-Tinte mit (≥ 5:1 auf der Füllung). Genutzt von der
+  Kana-Heatmap **und** den Success-Rate-Kacheln der Vocabulary-Coverage —
+  gleiche Bedeutung, gleiche Farbsprache. Farben stammen aus der validierten
   Referenzpalette des dataviz-Skills — bei Änderungen dort validieren.
 - Light + Dark Mode über CSS Custom Properties in `styles.css`.
 
@@ -89,7 +96,7 @@ statische Dateien. SQLite-File liegt auf dem Volume `/data` (env `DB_PATH`).
 # Backend (Port 8000)
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (30 Stück: Kana-Auswertung, Wörterbuch-Roundtrip, Loader, Game-Logik)
+# Tests (33 Stück: Kana-Auswertung, Roundtrip, Loader, Game-Logik, DB/Seeding)
 cd backend && uv run pytest
 
 # Frontend-Dev-Server (Port 4200, proxied /api → 8000)
@@ -109,8 +116,9 @@ docker compose up --build -d
   (ィ U+30A3 vs. イ U+30A4)!
 - `kana_stats` ist pro **Token** gekeyt (キャ ≠ キ), die Heatmap zeigt
   Einzel-Kana im Grid und Kombinationen als Chips darunter.
-- Seeding läuft bei jedem Start (Lifespan-Hook); Löschen von Wörtern aus den
-  JSON-Files entfernt sie nicht aus der DB (bewusst, wegen FK auf attempts).
+- Seeding läuft bei jedem Start (Lifespan-Hook) und **pruned**: Wörter, die
+  aus den JSON-Files verschwunden sind, werden gelöscht — außer sie wurden
+  schon beantwortet (FK auf attempts, Historie bleibt erhalten).
 - Angular: standalone components, neue Control-Flow-Syntax (`@if`/`@for`),
   inline templates/styles. Kein Router — Tabs sind lokaler State.
 
@@ -126,6 +134,10 @@ docker compose up --build -d
 - Rating-System v2: Spanne auf ~690–1810 gestreckt, Level 1–20 (75 Elo),
   asymmetrisches K (20/36), Review-Proben unterhalb der Komfortzone,
   Coverage-Statistik pro Level/Source (words.source-Spalte, migriert).
+- Success-Rate der Coverage als Heatmap-Kachel (geteilte `ramp.ts`);
+  Seeding pruned verschwundene Wörter. Lokale Dicts: sap.json (83, echte
+  SAP-Produkt-/Data-/AI-/Cloud-Begriffe aus japanischen SAP-Quellen),
+  ai.json (45).
 
 ### Ideen / offen
 

@@ -4,6 +4,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ApiService } from './api.service';
 import { HeatmapComponent } from './heatmap.component';
 import { KanaStat, Stats } from './models';
+import { RAMP, RampStep, rampStep } from './ramp';
 
 @Component({
   selector: 'app-stats',
@@ -112,9 +113,19 @@ import { KanaStat, Stats } from './models';
                     <span class="cov-label">Level {{ row.key }}</span>
                     <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   </div>
-                  <span class="cov-rate" [class.dim]="row.success === null">
-                    {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
-                  </span>
+                  @if (row.success !== null) {
+                    @let cell = rate(row.success);
+                    <span
+                      class="cov-rate"
+                      [style.background]="cell.bg"
+                      [style.color]="cell.fg"
+                      [title]="'Success rate ' + (row.success * 100 | number: '1.0-0') + ' %'"
+                    >
+                      {{ row.success * 100 | number: '1.0-0' }} %
+                    </span>
+                  } @else {
+                    <span class="cov-rate empty" title="Nothing answered yet">–</span>
+                  }
                 </div>
               }
             </div>
@@ -141,16 +152,34 @@ import { KanaStat, Stats } from './models';
                     <span class="cov-label">{{ row.key }}</span>
                     <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
                   </div>
-                  <span class="cov-rate" [class.dim]="row.success === null">
-                    {{ row.success !== null ? (row.success * 100 | number: '1.0-0') + ' %' : '–' }}
-                  </span>
+                  @if (row.success !== null) {
+                    @let cell = rate(row.success);
+                    <span
+                      class="cov-rate"
+                      [style.background]="cell.bg"
+                      [style.color]="cell.fg"
+                      [title]="'Success rate ' + (row.success * 100 | number: '1.0-0') + ' %'"
+                    >
+                      {{ row.success * 100 | number: '1.0-0' }} %
+                    </span>
+                  } @else {
+                    <span class="cov-rate empty" title="Nothing answered yet">–</span>
+                  }
                 </div>
               }
             </div>
           </div>
+          <div class="legend">
+            <span>0 %</span>
+            @for (c of ramp; track $index) {
+              <span class="swatch" [style.background]="c"></span>
+            }
+            <span>100 %</span>
+            <span class="legend-note">– = nothing answered yet</span>
+          </div>
           <p class="panel-note">
-            Ring = share of words seen at least once; percentage on the right =
-            success rate of all answers in that group.
+            Ring = share of words seen at least once; colored tile = success
+            rate of all answers in that group (same scale as kana confidence).
           </p>
         </div>
 
@@ -326,11 +355,46 @@ import { KanaStat, Stats } from './models';
         white-space: nowrap;
       }
       .cov-rate {
-        text-align: right;
+        justify-self: end;
+        min-width: 52px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.35;
         font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
-      .cov-rate.dim {
+      .cov-rate.empty {
+        background: transparent;
         color: var(--muted);
+        font-weight: 400;
+      }
+      .legend {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 16px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend .swatch {
+        width: 18px;
+        height: 10px;
+        border-radius: 2px;
+      }
+      .legend span:first-child {
+        margin-right: 4px;
+      }
+      .legend span:nth-last-child(2) {
+        margin-left: 4px;
+      }
+      .legend-note {
+        margin-left: 14px;
+      }
+      .legend + .panel-note {
+        margin-top: 8px;
       }
       .weak-list {
         display: flex;
@@ -407,6 +471,7 @@ export class StatsComponent implements OnInit {
   private api = inject(ApiService);
 
   readonly stats = signal<Stats | null>(null);
+  readonly ramp = RAMP;
 
   readonly weakest = computed<KanaStat[]>(() => {
     const s = this.stats();
@@ -451,6 +516,11 @@ export class StatsComponent implements OnInit {
   /** SQLite delivers UTC "YYYY-MM-DD HH:MM:SS"; Safari needs strict ISO. */
   toIso(sqliteUtc: string): string {
     return sqliteUtc.replace(' ', 'T') + 'Z';
+  }
+
+  /** Fill + label ink for a success-rate tile (shared kana-confidence scale). */
+  rate(success: number): RampStep {
+    return rampStep(success);
   }
 
   /** Dash pattern for the coverage ring (r=15.5 → circumference ~97.4). */

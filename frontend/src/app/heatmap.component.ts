@@ -1,12 +1,7 @@
 import { Component, Input, computed, signal } from '@angular/core';
 
 import { KanaStat } from './models';
-
-/** Sequential blue ramp (one hue, light→dark = higher confidence).
- *  On the dark surface the ramp runs dark→light so that "more" always
- *  moves away from the surface. */
-const LIGHT_RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
-const DARK_RAMP = ['#0d366b', '#104281', '#1c5cab', '#256abf', '#3987e5', '#6da7ec', '#cde2fb'];
+import { RAMP, rampStep } from './ramp';
 
 const GRID: (string | null)[][] = [
   ['ア', 'イ', 'ウ', 'エ', 'オ'],
@@ -199,10 +194,7 @@ export class HeatmapComponent {
   }
 
   readonly hover = signal<Cell | null>(null);
-  readonly dark =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-  readonly ramp = this.dark ? DARK_RAMP : LIGHT_RAMP;
+  readonly ramp = RAMP;
 
   readonly cells = computed<Cell[][]>(() => {
     const byKana = new Map(this.statsSig().map((s) => [s.kana, s]));
@@ -227,18 +219,7 @@ export class HeatmapComponent {
     if (!kana || !stat) {
       return { kana, stat: null, bg: 'transparent', fg: 'var(--muted)' };
     }
-    const idx = Math.min(
-      this.ramp.length - 1,
-      Math.floor(stat.ewma * this.ramp.length),
-    );
-    // Ink flips where the fill crosses mid-luminance (ramp direction differs
-    // per mode).
-    const whiteInk = this.dark ? idx <= 3 : idx >= 3;
-    return {
-      kana,
-      stat,
-      bg: this.ramp[idx],
-      fg: whiteInk ? '#ffffff' : '#0b0b0b',
-    };
+    const step = rampStep(stat.ewma);
+    return { kana, stat, bg: step.bg, fg: step.fg };
   }
 }

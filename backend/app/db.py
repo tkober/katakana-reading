@@ -101,8 +101,10 @@ def init_db(conn: sqlite3.Connection) -> None:
 
 def seed_words(conn: sqlite3.Connection) -> None:
     """Insert new dictionary words, refresh metadata of existing ones
-    (keeps the dynamically calibrated rating)."""
-    for katakana, meaning, level, source in load_words():
+    (keeps the dynamically calibrated rating), and drop words that vanished
+    from the JSON files."""
+    words = load_words()
+    for katakana, meaning, level, source in words:
         romaji = to_romaji(katakana)  # raises on invalid kana -> fails fast
         base = base_rating_for(katakana, level)
         # On base-rating changes (rebalanced formula, level edits) shift the
@@ -121,6 +123,29 @@ def seed_words(conn: sqlite3.Connection) -> None:
             """,
             (katakana, romaji, meaning, level, source, base, base),
         )
+    prune_words(conn, {k for k, _, _, _ in words})
+
+
+def prune_words(conn: sqlite3.Connection, keep: set[str]) -> int:
+    """Remove words no longer present in the JSON files.
+
+    Words that were already answered are kept regardless — attempts
+    reference them, and deleting would erase answer history. Returns how
+    many rows were removed. A temp table carries the key set so the delete
+    never runs into SQLite's bound-parameter limit.
+    """
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _seed_keys (katakana TEXT PRIMARY KEY)")
+    conn.execute("DELETE FROM _seed_keys")
+    conn.executemany("INSERT OR IGNORE INTO _seed_keys VALUES (?)", [(k,) for k in keep])
+    cur = conn.execute(
+        """
+        DELETE FROM words
+        WHERE katakana NOT IN (SELECT katakana FROM _seed_keys)
+          AND id NOT IN (SELECT DISTINCT word_id FROM attempts)
+        """
+    )
+    conn.execute("DROP TABLE _seed_keys")
+    return cur.rowcount
 
 
 def reset_all(conn: sqlite3.Connection) -> None:

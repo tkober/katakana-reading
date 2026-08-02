@@ -218,7 +218,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
                       <td [class.good-text]="a.elo_delta >= 0" [class.bad-text]="a.elo_delta < 0">
                         {{ a.elo_delta >= 0 ? '+' : '' }}{{ a.elo_delta | number: '1.1-1' }}
                       </td>
-                      <td class="muted">{{ toIso(a.created_at) | date: 'MMM d, HH:mm' }}</td>
+                      <td class="muted">{{ a.created_at | date: 'MMM d, HH:mm' }}</td>
                     </tr>
                   }
                 </tbody>
@@ -511,11 +511,6 @@ export class StatsComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.stats().subscribe((s) => this.stats.set(s));
-  }
-
-  /** SQLite delivers UTC "YYYY-MM-DD HH:MM:SS"; Safari needs strict ISO. */
-  toIso(sqliteUtc: string): string {
-    return sqliteUtc.replace(' ', 'T') + 'Z';
   }
 
   /** Fill + label ink for a success-rate tile (shared kana-confidence scale). */

@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from './api.service';
@@ -19,6 +20,9 @@ const PAGE_SIZE = 50;
             <div class="card">
               <div class="card-head">
                 <span class="card-name">{{ d.source }}</span>
+                <span class="chip" [class.uploaded]="d.origin === 'upload'">{{
+                  d.origin === 'upload' ? 'uploaded' : 'built-in'
+                }}</span>
                 <span class="card-total">{{ d.total }} words</span>
               </div>
 
@@ -73,6 +77,22 @@ const PAGE_SIZE = 50;
                   </dd>
                 </div>
               </dl>
+
+              <div class="card-actions">
+                <a class="link" [href]="exportUrl(d.source)" download>Export JSON</a>
+                @if (d.origin === 'upload') {
+                  @if (pendingDelete() === d.source) {
+                    <button class="link" (click)="pendingDelete.set(null)">Cancel</button>
+                    <button class="link danger" (click)="remove(d.source)">
+                      Really delete
+                    </button>
+                  } @else {
+                    <button class="link danger" (click)="pendingDelete.set(d.source)">
+                      Delete
+                    </button>
+                  }
+                }
+              </div>
             </div>
           }
         </div>
@@ -84,6 +104,52 @@ const PAGE_SIZE = 50;
           }
           <span>harder</span>
           <span class="legend-note">bar = share of levels 1–5 in that file</span>
+        </div>
+
+        <div class="panel">
+          <h2>Add a dictionary</h2>
+          <p class="panel-note">
+            Upload a JSON word list to practice your own vocabulary. It is stored
+            in the database — not in the app image — so it survives updates and
+            stays off GitHub. Uploading the same name again replaces that
+            dictionary.
+          </p>
+          <div class="upload-row">
+            <input
+              #picker
+              type="file"
+              accept=".json,application/json"
+              hidden
+              (change)="onFile($event)"
+            />
+            <button class="btn-outline" (click)="picker.click()">Choose file…</button>
+            <span class="file-name" [class.muted]="!fileName()">
+              {{ fileName() || 'no file selected' }}
+            </span>
+            <input
+              class="name-input"
+              type="text"
+              placeholder="dictionary name"
+              [(ngModel)]="name"
+              autocomplete="off"
+            />
+            <button
+              class="btn-primary"
+              [disabled]="!entries() || !name.trim() || busy()"
+              (click)="upload()"
+            >
+              Upload
+            </button>
+            <a class="link" href="/api/dictionaries/template" download>
+              Download template
+            </a>
+          </div>
+          @if (uploadError()) {
+            <p class="warn">{{ uploadError() }}</p>
+          }
+          @if (uploadNote()) {
+            <p class="success">{{ uploadNote() }}</p>
+          }
         </div>
 
         <div class="panel">
@@ -210,6 +276,7 @@ const PAGE_SIZE = 50;
         display: flex;
         justify-content: space-between;
         align-items: baseline;
+        gap: 8px;
         margin-bottom: 10px;
       }
       .card-name {
@@ -220,6 +287,42 @@ const PAGE_SIZE = 50;
         color: var(--muted);
         font-size: 12px;
         font-variant-numeric: tabular-nums;
+      }
+      /* Origin badge: where this dictionary came from. The uploaded ones are
+         the only ones the delete/replace actions apply to. */
+      .chip {
+        margin-right: auto;
+        padding: 1px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--grid);
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .chip.uploaded {
+        border-color: var(--accent);
+        color: var(--ink-2);
+      }
+      .card-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--grid);
+      }
+      .link {
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink-2);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        cursor: pointer;
+      }
+      .link.danger {
+        color: var(--critical);
       }
       .stack {
         display: flex;
@@ -312,6 +415,69 @@ const PAGE_SIZE = 50;
       .panel h2 {
         font-size: 16px;
         margin: 0 0 14px;
+      }
+      .panel-note {
+        font-size: 13px;
+        color: var(--ink-2);
+        margin: -6px 0 14px;
+        max-width: 70ch;
+      }
+      .upload-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+      .file-name {
+        font-size: 13px;
+        max-width: 22ch;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .name-input {
+        font: inherit;
+        font-size: 13px;
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--grid);
+        background: var(--page);
+        color: var(--ink);
+        width: 170px;
+      }
+      .btn-outline,
+      .btn-primary {
+        font: inherit;
+        font-size: 13px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--grid);
+        color: var(--ink);
+      }
+      .btn-primary {
+        background: var(--accent);
+        border: none;
+        color: var(--accent-ink);
+      }
+      .btn-primary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .warn {
+        color: var(--critical);
+        font-size: 13px;
+        margin: 12px 0 0;
+      }
+      .success {
+        color: var(--good-text);
+        font-size: 13px;
+        font-weight: 600;
+        margin: 12px 0 0;
       }
       .filters {
         display: flex;
@@ -417,16 +583,112 @@ export class DictionariesComponent implements OnInit {
   readonly pageSize = PAGE_SIZE;
   readonly Math = Math;
 
+  // Upload state: the parsed file contents plus the feedback line below the row.
+  readonly fileName = signal('');
+  readonly entries = signal<unknown | null>(null);
+  readonly busy = signal(false);
+  readonly uploadError = signal('');
+  readonly uploadNote = signal('');
+  readonly pendingDelete = signal<string | null>(null);
+
   source = '';
   level: number | '' = '';
   sort = 'level';
   query = '';
+  name = '';
 
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
-    this.api.dictionaries().subscribe((r) => this.dicts.set(r.dictionaries));
+    this.loadDictionaries();
     this.fetch();
+  }
+
+  exportUrl(source: string): string {
+    return `/api/dictionaries/${encodeURIComponent(source)}/export`;
+  }
+
+  /** Read the picked file and pre-fill the name from its stem. */
+  async onFile(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // so picking the same file again fires another change
+    if (!file) {
+      return;
+    }
+    this.uploadError.set('');
+    this.uploadNote.set('');
+    this.fileName.set(file.name);
+    this.name = file.name.replace(/\.json$/i, '');
+    try {
+      this.entries.set(JSON.parse(await file.text()));
+    } catch {
+      this.entries.set(null);
+      this.uploadError.set(`${file.name} is not valid JSON.`);
+    }
+  }
+
+  upload(): void {
+    const entries = this.entries();
+    if (entries === null) {
+      return;
+    }
+    this.busy.set(true);
+    this.uploadError.set('');
+    this.uploadNote.set('');
+    this.api.uploadDictionary(this.name.trim(), entries).subscribe({
+      next: (r) => {
+        this.busy.set(false);
+        this.entries.set(null);
+        this.fileName.set('');
+        this.name = '';
+        this.uploadNote.set(
+          `${r.replaced ? 'Replaced' : 'Added'} "${r.source}" — ${r.entries} entries, ` +
+            `${r.words} words in the pool.`,
+        );
+        this.loadDictionaries();
+        this.reload();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.busy.set(false);
+        this.uploadError.set(this.errorText(err));
+      },
+    });
+  }
+
+  remove(source: string): void {
+    this.pendingDelete.set(null);
+    this.api.deleteDictionary(source).subscribe({
+      next: (r) => {
+        this.uploadNote.set(
+          r.kept > 0
+            ? `Deleted "${r.source}" — ${r.removed} words removed, ${r.kept} kept ` +
+                'because they carry answer history.'
+            : `Deleted "${r.source}" — ${r.removed} words removed.`,
+        );
+        this.loadDictionaries();
+        this.reload();
+      },
+      error: (err: HttpErrorResponse) => this.uploadError.set(this.errorText(err)),
+    });
+  }
+
+  private loadDictionaries(): void {
+    this.api.dictionaries().subscribe((r) => this.dicts.set(r.dictionaries));
+  }
+
+  /** The backend reports per-entry problems; surface the first few verbatim. */
+  private errorText(err: HttpErrorResponse): string {
+    const detail = err.error?.detail;
+    if (typeof detail === 'string') {
+      return detail;
+    }
+    if (detail?.errors?.length) {
+      const shown = detail.errors.slice(0, 3).join(' · ');
+      const rest = detail.errors.length - 3;
+      return `${detail.message}: ${shown}${rest > 0 ? ` (+${rest} more)` : ''}`;
+    }
+    return 'Upload failed — is the backend running?';
   }
 
   color(level: number): string {

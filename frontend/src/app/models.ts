@@ -97,6 +97,9 @@ export interface LevelCount {
 
 export interface DictionaryInfo {
   source: string;
+  /** "file" ships with the app, "upload" was added through the UI. */
+  origin: 'file' | 'upload';
+  uploaded_at: string | null;
   total: number;
   seen: number;
   served: number;
@@ -113,6 +116,20 @@ export interface DictionaryInfo {
 export interface DictionariesResponse {
   dictionaries: DictionaryInfo[];
   all: DictionaryInfo | null;
+}
+
+export interface UploadResult {
+  source: string;
+  replaced: boolean;
+  entries: number;
+  words: number;
+}
+
+export interface DeleteResult {
+  source: string;
+  removed: number;
+  /** Words kept because they carry answer history. */
+  kept: number;
 }
 
 export interface WordRow {

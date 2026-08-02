@@ -1,5 +1,7 @@
 import json
 
+from sqlalchemy import func, select
+
 from app import db, game
 
 
@@ -9,62 +11,126 @@ def write_words(tmp_path, entries, name="basic/basic.json"):
     path.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
 
 
-def setup_db(tmp_path, monkeypatch, entries):
+async def setup_db(tmp_path, monkeypatch, entries):
     monkeypatch.setenv("WORDS_DIR", str(tmp_path / "words"))
-    monkeypatch.setenv("DB_PATH", str(tmp_path / "test.db"))
     write_words(tmp_path, entries)
-    conn = db.get_conn()
-    db.init_db(conn)
-    return conn
+    await db.init_db()
 
 
-def test_removed_words_are_pruned(tmp_path, monkeypatch):
-    conn = setup_db(tmp_path, monkeypatch, [
+async def katakana_in(session) -> set[str]:
+    return set((await session.execute(select(db.Word.katakana))).scalars())
+
+
+async def test_removed_words_are_pruned(session, tmp_path, monkeypatch):
+    await setup_db(tmp_path, monkeypatch, [
         {"katakana": "バス", "meaning": "bus", "level": 1},
         {"katakana": "パン", "meaning": "bread", "level": 1},
     ])
-    assert conn.execute("SELECT COUNT(*) FROM words").fetchone()[0] == 2
+    assert len(await katakana_in(session)) == 2
 
     # パン disappears from the dictionary -> gone on next seed
     write_words(tmp_path, [{"katakana": "バス", "meaning": "bus", "level": 1}])
-    db.seed_words(conn)
-    kept = [r["katakana"] for r in conn.execute("SELECT katakana FROM words")]
-    assert kept == ["バス"]
+    await db.seed_words(session)
+    await session.commit()
+    assert await katakana_in(session) == {"バス"}
 
 
-def test_answered_words_survive_pruning(tmp_path, monkeypatch):
-    conn = setup_db(tmp_path, monkeypatch, [
+async def test_answered_words_survive_pruning(session, tmp_path, monkeypatch):
+    await setup_db(tmp_path, monkeypatch, [
         {"katakana": "バス", "meaning": "bus", "level": 1},
         {"katakana": "パン", "meaning": "bread", "level": 1},
     ])
-    word_id = conn.execute(
-        "SELECT id FROM words WHERE katakana = 'パン'"
-    ).fetchone()["id"]
-    game.submit_answer(conn, word_id, "pan", 1200)
+    word_id = await session.scalar(
+        select(db.Word.id).where(db.Word.katakana == "パン")
+    )
+    await game.submit_answer(session, word_id, "pan", 1200)
 
     write_words(tmp_path, [{"katakana": "バス", "meaning": "bus", "level": 1}])
-    db.seed_words(conn)
-    kept = {r["katakana"] for r in conn.execute("SELECT katakana FROM words")}
-    assert kept == {"バス", "パン"}  # history keeps パン alive
-    assert conn.execute("SELECT COUNT(*) FROM attempts").fetchone()[0] == 1
+    await db.seed_words(session)
+    await session.commit()
+    assert await katakana_in(session) == {"バス", "パン"}  # history keeps パン alive
+    assert await session.scalar(select(func.count()).select_from(db.Attempt)) == 1
 
 
-def test_rating_shifts_with_base_rating(tmp_path, monkeypatch):
-    conn = setup_db(tmp_path, monkeypatch, [
+async def test_rating_shifts_with_base_rating(session, tmp_path, monkeypatch):
+    await setup_db(tmp_path, monkeypatch, [
         {"katakana": "バス", "meaning": "bus", "level": 1},
     ])
-    conn.execute("UPDATE words SET rating = rating + 40 WHERE katakana = 'バス'")
-    before = conn.execute(
-        "SELECT rating, base_rating FROM words WHERE katakana = 'バス'"
-    ).fetchone()
+    word = await session.scalar(select(db.Word).where(db.Word.katakana == "バス"))
+    word.rating += 40
+    await session.commit()
+    before_rating, before_base = word.rating, word.base_rating
 
     # same word, harder level -> base rating jumps, learned offset survives
     write_words(tmp_path, [{"katakana": "バス", "meaning": "bus", "level": 3}])
-    db.seed_words(conn)
-    after = conn.execute(
-        "SELECT rating, base_rating FROM words WHERE katakana = 'バス'"
-    ).fetchone()
-    assert after["base_rating"] > before["base_rating"]
-    assert round(after["rating"] - after["base_rating"], 6) == round(
-        before["rating"] - before["base_rating"], 6
+    await db.seed_words(session)
+    await session.commit()
+    await session.refresh(word)
+    assert word.base_rating > before_base
+    assert round(word.rating - word.base_rating, 6) == round(
+        before_rating - before_base, 6
     )
+
+
+async def test_uploaded_dictionary_extends_and_overrides(session, tmp_path, monkeypatch):
+    await setup_db(tmp_path, monkeypatch, [
+        {"katakana": "バス", "meaning": "bus", "level": 1},
+    ])
+    await db.save_dictionary(session, "work", [
+        {"katakana": "バス", "meaning": "bus (work)", "level": 2},
+        {"katakana": "サーバー", "meaning": "server", "level": 3},
+    ])
+
+    words = {
+        w.katakana: w for w in (await session.execute(select(db.Word))).scalars()
+    }
+    assert set(words) == {"バス", "サーバー"}
+    assert words["サーバー"].source == "work"
+    # the upload wins over the file entry it shadows
+    assert words["バス"].meaning == "bus (work)"
+    assert words["バス"].source == "work"
+
+
+async def test_deleting_a_dictionary_removes_its_unanswered_words(
+    session, tmp_path, monkeypatch
+):
+    await setup_db(tmp_path, monkeypatch, [
+        {"katakana": "バス", "meaning": "bus", "level": 1},
+    ])
+    await db.save_dictionary(session, "work", [
+        {"katakana": "サーバー", "meaning": "server", "level": 3},
+        {"katakana": "データ", "meaning": "data", "level": 2},
+    ])
+    answered = await session.scalar(
+        select(db.Word.id).where(db.Word.katakana == "データ")
+    )
+    await game.submit_answer(session, answered, "deeta", 1500)
+
+    removed = await db.delete_dictionary(session, "work")
+    assert removed == 1  # サーバー goes, データ stays for its history
+    assert await katakana_in(session) == {"バス", "データ"}
+    assert await db.uploaded_dictionaries(session) == {}
+
+
+async def test_stored_dictionary_survives_a_broken_entry(
+    session, tmp_path, monkeypatch
+):
+    """A bad row must never keep the app from booting — it is skipped, and the
+    rest of the dictionary still seeds."""
+    await setup_db(tmp_path, monkeypatch, [
+        {"katakana": "バス", "meaning": "bus", "level": 1},
+    ])
+    session.add(
+        db.Dictionary(
+            name="broken",
+            entries=[
+                {"katakana": "サーバー", "meaning": "server", "level": 3},
+                {"katakana": "not katakana", "meaning": "nope", "level": 1},
+            ],
+        )
+    )
+    await session.commit()
+
+    await db.seed_words(session)
+    await session.commit()
+    assert await katakana_in(session) == {"バス", "サーバー"}

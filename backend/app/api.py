@@ -2,24 +2,23 @@
 
 from __future__ import annotations
 
-import sqlite3
-from typing import Any, Iterator
+import json
+import re
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import db, game
+from .db import Attempt, KanaStat, Word, get_session
 from .kana import tokenize
+from .words import TEMPLATE_ENTRIES, file_sources, validate_entries
 
 router = APIRouter(prefix="/api")
 
-
-def get_db() -> Iterator[sqlite3.Connection]:
-    conn = db.get_conn()
-    try:
-        yield conn
-    finally:
-        conn.close()
+NAME_RE = re.compile(r"[^a-z0-9_-]+")
 
 
 class AnswerIn(BaseModel):
@@ -32,162 +31,211 @@ class ResetIn(BaseModel):
     confirm: str
 
 
+class DictionaryIn(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    entries: Any  # validated by words.validate_entries, which owns the format
+
+
 @router.get("/health")
-def health() -> dict[str, str]:
+async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @router.get("/profile")
-def profile(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
+async def profile(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     """Cheap header state — no need to pull full stats just for the chips."""
-    user = game.get_user(conn)
+    user = await game.get_user(session)
     return {
-        "elo": round(user["elo"], 1),
-        "level": game.level_for_elo(user["elo"]),
-        "streak": user["current_streak"],
+        "elo": round(user.elo, 1),
+        "level": game.level_for_elo(user.elo),
+        "streak": user.current_streak,
     }
 
 
 @router.get("/word/next")
-def next_word(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
-    word = game.pick_next_word(conn)
-    user = game.get_user(conn)
+async def next_word(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    word = await game.pick_next_word(session)
+    user = await game.get_user(session)
+    kana_count = len(tokenize(word.katakana))
     return {
-        "word_id": word["id"],
-        "katakana": word["katakana"],
-        "level": word["level"],
-        "kana_count": len(tokenize(word["katakana"])),
-        "target_time_ms": game.target_time_ms(len(tokenize(word["katakana"]))),
-        "user_level": game.level_for_elo(user["elo"]),
-        "elo": round(user["elo"], 1),
+        "word_id": word.id,
+        "katakana": word.katakana,
+        "level": word.level,
+        "kana_count": kana_count,
+        "target_time_ms": game.target_time_ms(kana_count),
+        "user_level": game.level_for_elo(user.elo),
+        "elo": round(user.elo, 1),
     }
 
 
 @router.post("/answer")
-def answer(body: AnswerIn, conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
+async def answer(
+    body: AnswerIn, session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
     try:
-        return game.submit_answer(conn, body.word_id, body.answer, body.time_ms)
+        return await game.submit_answer(session, body.word_id, body.answer, body.time_ms)
     except KeyError:
         raise HTTPException(status_code=404, detail="word not found")
 
 
 @router.get("/stats")
-def stats(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
-    user = game.get_user(conn)
-    totals = conn.execute(
-        "SELECT COUNT(*) AS n, COALESCE(SUM(correct), 0) AS c FROM attempts"
-    ).fetchone()
-    timing = conn.execute(
-        """
-        SELECT COALESCE(AVG(time_ms), 0) AS avg_word,
-               COALESCE(SUM(time_ms) * 1.0 / NULLIF(SUM(kana_total), 0), 0) AS avg_kana
-        FROM (SELECT time_ms, kana_total FROM attempts ORDER BY id DESC LIMIT 100)
-        """
-    ).fetchone()
+async def stats(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    user = await game.get_user(session)
+    total_attempts, correct_attempts = (
+        await session.execute(
+            select(
+                func.count(Attempt.id),
+                # correct is a boolean here, so FILTER rather than SUM
+                func.count(Attempt.id).filter(Attempt.correct),
+            )
+        )
+    ).one()
+
+    window = (
+        select(Attempt.time_ms, Attempt.kana_total)
+        .order_by(Attempt.id.desc())
+        .limit(100)
+        .subquery()
+    )
+    avg_word, avg_kana = (
+        await session.execute(
+            select(
+                func.coalesce(func.avg(window.c.time_ms), 0),
+                func.coalesce(
+                    func.sum(window.c.time_ms)
+                    * 1.0
+                    / func.nullif(func.sum(window.c.kana_total), 0),
+                    0,
+                ),
+            )
+        )
+    ).one()
+
     kana_rows = [
         {
-            "kana": r["kana"],
-            "attempts": r["attempts"],
-            "correct": r["correct"],
-            "accuracy": round(r["correct"] / r["attempts"], 3) if r["attempts"] else None,
-            "ewma": round(r["ewma"], 3),
+            "kana": r.kana,
+            "attempts": r.attempts,
+            "correct": r.correct,
+            "accuracy": round(r.correct / r.attempts, 3) if r.attempts else None,
+            "ewma": round(r.ewma, 3),
         }
-        for r in conn.execute("SELECT * FROM kana_stats ORDER BY kana")
-    ]
-    recent = [
-        {
-            "katakana": r["katakana"],
-            "romaji": r["romaji"],
-            "answer": r["answer"],
-            "correct": bool(r["correct"]),
-            "kana_total": r["kana_total"],
-            "kana_correct": r["kana_correct"],
-            "time_ms": r["time_ms"],
-            "elo_delta": round(r["elo_after"] - r["elo_before"], 1),
-            "created_at": r["created_at"],
-        }
-        for r in conn.execute(
-            """
-            SELECT a.*, w.katakana, w.romaji FROM attempts a
-            JOIN words w ON w.id = a.word_id
-            ORDER BY a.id DESC LIMIT 12
-            """
-        )
-    ]
-    elo_history = [
-        round(r["elo_after"], 1)
-        for r in conn.execute(
-            "SELECT elo_after FROM (SELECT id, elo_after FROM attempts "
-            "ORDER BY id DESC LIMIT 60) ORDER BY id"
-        )
+        for r in (
+            await session.execute(select(KanaStat).order_by(KanaStat.kana))
+        ).scalars()
     ]
 
-    def coverage(group_col: str) -> list[dict[str, Any]]:
+    recent = [
+        {
+            "katakana": katakana,
+            "romaji": romaji,
+            "answer": a.answer,
+            "correct": a.correct,
+            "kana_total": a.kana_total,
+            "kana_correct": a.kana_correct,
+            "time_ms": a.time_ms,
+            "elo_delta": round(a.elo_after - a.elo_before, 1),
+            "created_at": a.created_at,
+        }
+        for a, katakana, romaji in (
+            await session.execute(
+                select(Attempt, Word.katakana, Word.romaji)
+                .join(Word, Word.id == Attempt.word_id)
+                .order_by(Attempt.id.desc())
+                .limit(12)
+            )
+        ).all()
+    ]
+
+    history_window = (
+        select(Attempt.id, Attempt.elo_after)
+        .order_by(Attempt.id.desc())
+        .limit(60)
+        .subquery()
+    )
+    elo_history = [
+        round(v, 1)
+        for v in (
+            await session.execute(
+                select(history_window.c.elo_after).order_by(history_window.c.id)
+            )
+        ).scalars()
+    ]
+
+    async def coverage(group_col: Any) -> list[dict[str, Any]]:
+        rows = await session.execute(
+            select(
+                group_col,
+                func.count(),
+                func.count().filter(Word.times_served > 0),
+                func.coalesce(func.sum(Word.times_served), 0),
+                func.coalesce(func.sum(Word.times_correct), 0),
+            )
+            .group_by(group_col)
+            .order_by(group_col)
+        )
         return [
             {
-                "key": str(r["k"]),
-                "total": r["total"],
-                "seen": r["seen"],
-                "served": r["served"],
-                "correct": r["correct"],
-                "success": round(r["correct"] / r["served"], 3) if r["served"] else None,
+                "key": str(key),
+                "total": total,
+                "seen": seen,
+                "served": served,
+                "correct": correct,
+                "success": round(correct / served, 3) if served else None,
             }
-            for r in conn.execute(
-                f"""
-                SELECT {group_col} AS k,
-                       COUNT(*) AS total,
-                       SUM(CASE WHEN times_served > 0 THEN 1 ELSE 0 END) AS seen,
-                       COALESCE(SUM(times_served), 0) AS served,
-                       COALESCE(SUM(times_correct), 0) AS correct
-                FROM words GROUP BY {group_col} ORDER BY {group_col}
-                """
-            )
+            for key, total, seen, served, correct in rows
         ]
 
     return {
-        "elo": round(user["elo"], 1),
-        "level": game.level_for_elo(user["elo"]),
-        "level_progress": round(game.level_progress(user["elo"]), 3),
+        "elo": round(user.elo, 1),
+        "level": game.level_for_elo(user.elo),
+        "level_progress": round(game.level_progress(user.elo), 3),
         "max_level": game.MAX_LEVEL,
-        "current_streak": user["current_streak"],
-        "best_streak": user["best_streak"],
-        "total_attempts": totals["n"],
-        "correct_attempts": totals["c"],
-        "accuracy": round(totals["c"] / totals["n"], 3) if totals["n"] else None,
-        "avg_time_ms": round(timing["avg_word"]),
-        "avg_time_per_kana_ms": round(timing["avg_kana"]),
+        "current_streak": user.current_streak,
+        "best_streak": user.best_streak,
+        "total_attempts": total_attempts,
+        "correct_attempts": correct_attempts,
+        "accuracy": (
+            round(correct_attempts / total_attempts, 3) if total_attempts else None
+        ),
+        "avg_time_ms": round(avg_word),
+        "avg_time_per_kana_ms": round(avg_kana),
         "kana": kana_rows,
         "recent": recent,
         "elo_history": elo_history,
         "coverage": {
-            "levels": coverage("level"),
-            "sources": coverage("source"),
+            "levels": await coverage(Word.level),
+            "sources": await coverage(Word.source),
         },
     }
 
 
 @router.get("/dictionaries")
-def dictionaries(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
-    """Composition of each vocabulary file: size, level mix, word length,
+async def dictionaries(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    """Composition of each vocabulary source: size, level mix, word length,
     rating span and how much of it has been practiced."""
-    rows = conn.execute(
-        "SELECT katakana, source, level, rating, times_served, times_correct FROM words"
-    ).fetchall()
+    words = list((await session.execute(select(Word))).scalars())
+    uploads = await db.uploaded_dictionaries(session)
 
-    buckets: dict[str, list[sqlite3.Row]] = {}
-    for r in rows:
-        buckets.setdefault(r["source"], []).append(r)
+    buckets: dict[str, list[Word]] = {}
+    for w in words:
+        buckets.setdefault(w.source, []).append(w)
+    # An uploaded dictionary whose words all moved to another source (or that
+    # was uploaded empty) still exists — show it instead of dropping it.
+    for name in uploads:
+        buckets.setdefault(name, [])
 
-    def summarize(name: str, items: list[sqlite3.Row]) -> dict[str, Any]:
-        kana_counts = [len(tokenize(r["katakana"])) for r in items]
-        served = sum(r["times_served"] for r in items)
-        correct = sum(r["times_correct"] for r in items)
-        seen = sum(1 for r in items if r["times_served"] > 0)
+    def summarize(name: str, items: list[Word]) -> dict[str, Any]:
+        kana_counts = [len(tokenize(w.katakana)) for w in items]
+        served = sum(w.times_served for w in items)
+        correct = sum(w.times_correct for w in items)
+        seen = sum(1 for w in items if w.times_served > 0)
         by_level = {lvl: 0 for lvl in range(1, 6)}
-        for r in items:
-            by_level[r["level"]] = by_level.get(r["level"], 0) + 1
+        for w in items:
+            by_level[w.level] = by_level.get(w.level, 0) + 1
         return {
             "source": name,
+            "origin": "upload" if name in uploads else "file",
+            "uploaded_at": uploads.get(name),
             "total": len(items),
             "seen": seen,
             "served": served,
@@ -199,82 +247,180 @@ def dictionaries(conn: sqlite3.Connection = Depends(get_db)) -> dict[str, Any]:
             "avg_kana": round(sum(kana_counts) / len(kana_counts), 1) if kana_counts else 0,
             "min_kana": min(kana_counts, default=0),
             "max_kana": max(kana_counts, default=0),
-            "rating_min": round(min((r["rating"] for r in items), default=0)),
-            "rating_max": round(max((r["rating"] for r in items), default=0)),
+            "rating_min": round(min((w.rating for w in items), default=0)),
+            "rating_max": round(max((w.rating for w in items), default=0)),
         }
 
     dicts = [summarize(name, items) for name, items in sorted(buckets.items())]
     return {
         "dictionaries": dicts,
-        "all": summarize("all", rows) if rows else None,
+        "all": summarize("all", words) if words else None,
     }
 
 
+@router.get("/dictionaries/template")
+async def dictionary_template() -> Response:
+    """The JSON shape an upload has to have — offered as a download."""
+    return _json_download(TEMPLATE_ENTRIES, "katakana-dictionary-template.json")
+
+
+@router.post("/dictionaries", status_code=201)
+async def upload_dictionary(
+    body: DictionaryIn, session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    """Store an uploaded vocabulary list and fold it into the word pool.
+
+    All-or-nothing: one unreadable entry rejects the whole file. That strictness
+    is deliberate — a stored dictionary is re-read on every boot, so anything
+    accepted here has to stay loadable.
+    """
+    name = NAME_RE.sub("-", body.name.strip().lower()).strip("-")
+    if not name:
+        raise HTTPException(
+            status_code=400, detail="name must contain letters, digits, - or _"
+        )
+    if name in file_sources():
+        raise HTTPException(
+            status_code=409,
+            detail=f'"{name}" is a built-in dictionary — pick another name',
+        )
+
+    entries, errors = validate_entries(body.entries, name)
+    if errors:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": f"{len(errors)} invalid entr"
+                    f"{'y' if len(errors) == 1 else 'ies'}", "errors": errors[:20]},
+        )
+    if not entries:
+        raise HTTPException(status_code=400, detail="the dictionary is empty")
+
+    existed = name in await db.uploaded_dictionaries(session)
+    await db.save_dictionary(session, name, list(body.entries))
+    words = await session.scalar(
+        select(func.count()).select_from(Word).where(Word.source == name)
+    )
+    return {
+        "source": name,
+        "replaced": existed,
+        "entries": len(entries),
+        "words": words or 0,
+    }
+
+
+@router.delete("/dictionaries/{name}")
+async def remove_dictionary(
+    name: str, session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    """Delete an uploaded dictionary. Words that were already answered stay —
+    their attempt history would go with them."""
+    try:
+        removed = await db.delete_dictionary(session, name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="no such uploaded dictionary")
+    kept = await session.scalar(
+        select(func.count()).select_from(Word).where(Word.source == name)
+    )
+    return {"source": name, "removed": removed, "kept": kept or 0}
+
+
+@router.get("/dictionaries/{name}/export")
+async def export_dictionary(
+    name: str, session: AsyncSession = Depends(get_session)
+) -> Response:
+    """Download a dictionary in upload format — works for built-in ones too,
+    which doubles as a backup path for uploads."""
+    rows = (
+        await session.execute(
+            select(Word)
+            .where(Word.source == name)
+            .order_by(Word.level, Word.katakana)
+        )
+    ).scalars()
+    entries = [
+        {"katakana": w.katakana, "meaning": w.meaning, "level": w.level} for w in rows
+    ]
+    if not entries:
+        raise HTTPException(status_code=404, detail="no such dictionary")
+    return _json_download(entries, f"{name}.json")
+
+
 @router.get("/words")
-def words(
+async def words(
     source: str | None = None,
     level: int | None = None,
     q: str | None = None,
     sort: str = "level",
     limit: int = 100,
     offset: int = 0,
-    conn: sqlite3.Connection = Depends(get_db),
+    session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     """Browsable word list with filters — for inspecting a dictionary."""
-    where: list[str] = []
-    params: list[Any] = []
+    conds = []
     if source:
-        where.append("source = ?")
-        params.append(source)
+        conds.append(Word.source == source)
     if level is not None:
-        where.append("level = ?")
-        params.append(level)
+        conds.append(Word.level == level)
     if q:
-        where.append("(katakana LIKE ? OR romaji LIKE ? OR meaning LIKE ?)")
-        params += [f"%{q}%"] * 3
-    clause = f"WHERE {' AND '.join(where)}" if where else ""
+        # ilike, not like: Postgres' LIKE is case-sensitive (SQLite's was not)
+        pattern = f"%{q}%"
+        conds.append(
+            Word.katakana.ilike(pattern)
+            | Word.romaji.ilike(pattern)
+            | Word.meaning.ilike(pattern)
+        )
 
     order = {
-        "level": "level ASC, rating ASC, katakana ASC",
-        "rating": "rating DESC, katakana ASC",
-        "served": "times_served DESC, katakana ASC",
-        "alpha": "katakana ASC",
-    }.get(sort, "level ASC, rating ASC, katakana ASC")
+        "level": (Word.level.asc(), Word.rating.asc(), Word.katakana.asc()),
+        "rating": (Word.rating.desc(), Word.katakana.asc()),
+        "served": (Word.times_served.desc(), Word.katakana.asc()),
+        "alpha": (Word.katakana.asc(),),
+    }.get(sort, (Word.level.asc(), Word.rating.asc(), Word.katakana.asc()))
 
-    total = conn.execute(f"SELECT COUNT(*) FROM words {clause}", params).fetchone()[0]
+    total = await session.scalar(
+        select(func.count()).select_from(Word).where(*conds)
+    )
     limit = max(1, min(limit, 500))
-    rows = conn.execute(
-        f"""
-        SELECT katakana, romaji, meaning, level, source, rating,
-               times_served, times_correct
-        FROM words {clause} ORDER BY {order} LIMIT ? OFFSET ?
-        """,
-        [*params, limit, max(0, offset)],
-    ).fetchall()
+    offset = max(0, offset)
+    rows = (
+        await session.execute(
+            select(Word).where(*conds).order_by(*order).limit(limit).offset(offset)
+        )
+    ).scalars()
     return {
-        "total": total,
+        "total": total or 0,
         "offset": offset,
         "limit": limit,
         "words": [
             {
-                "katakana": r["katakana"],
-                "romaji": r["romaji"],
-                "meaning": r["meaning"],
-                "level": r["level"],
-                "source": r["source"],
-                "rating": round(r["rating"]),
-                "times_served": r["times_served"],
-                "times_correct": r["times_correct"],
-                "kana_count": len(tokenize(r["katakana"])),
+                "katakana": w.katakana,
+                "romaji": w.romaji,
+                "meaning": w.meaning,
+                "level": w.level,
+                "source": w.source,
+                "rating": round(w.rating),
+                "times_served": w.times_served,
+                "times_correct": w.times_correct,
+                "kana_count": len(tokenize(w.katakana)),
             }
-            for r in rows
+            for w in rows
         ],
     }
 
 
 @router.post("/reset")
-def reset(body: ResetIn, conn: sqlite3.Connection = Depends(get_db)) -> dict[str, str]:
+async def reset(
+    body: ResetIn, session: AsyncSession = Depends(get_session)
+) -> dict[str, str]:
     if body.confirm != "RESET":
         raise HTTPException(status_code=400, detail='confirmation must be "RESET"')
-    db.reset_all(conn)
+    await db.reset_all(session)
     return {"status": "reset"}
+
+
+def _json_download(payload: Any, filename: str) -> Response:
+    return Response(
+        content=json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -250,7 +250,8 @@ type SessionState = 'idle' | 'active' | 'ended';
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        flex-wrap: wrap;
+        gap: 8px 12px;
         font-size: 13px;
         color: var(--ink-2);
       }
@@ -379,6 +380,9 @@ type SessionState = 'idle' | 'active' | 'ended';
       }
       .answer-input {
         flex: 1;
+        /* Without this the input keeps its intrinsic size=20 width (~242px)
+           and pushes the button off screen on narrow phones. */
+        min-width: 0;
         font-size: 20px;
         padding: 12px 16px;
         border-radius: 10px;
@@ -393,6 +397,8 @@ type SessionState = 'idle' | 'active' | 'ended';
         border-color: transparent;
       }
       .submit-btn {
+        flex: none;
+        white-space: nowrap;
         padding: 12px 22px;
         border-radius: 10px;
         border: none;

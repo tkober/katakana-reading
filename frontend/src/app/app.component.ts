@@ -104,11 +104,15 @@ import { ApiService } from './api.service';
         padding: 0 20px;
         display: flex;
         gap: 4px;
+        /* Four tabs are wider than a 360px phone once the system font is
+           scaled up — wrap to a second row instead of widening the page. */
+        flex-wrap: wrap;
       }
       .tabs a {
         border-bottom: 2px solid transparent;
         padding: 8px 14px;
         font-size: 14px;
+        white-space: nowrap;
         color: var(--ink-2);
         text-decoration: none;
         cursor: pointer;
@@ -122,6 +126,24 @@ import { ApiService } from './api.service';
         max-width: 860px;
         margin: 0 auto;
         padding: 24px 20px 64px;
+      }
+
+      /* Phone: buy back horizontal room so all four tabs stay on one row. */
+      @media (max-width: 430px) {
+        .topbar-inner {
+          padding: 12px 14px 6px;
+          gap: 8px;
+        }
+        .tabs {
+          padding: 0 14px;
+        }
+        .tabs a {
+          padding: 10px 9px;
+          font-size: 13px;
+        }
+        .content {
+          padding: 20px 14px 56px;
+        }
       }
     `,
   ],

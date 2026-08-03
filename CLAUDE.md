@@ -227,6 +227,15 @@ docker compose up --build -d
   *gesetzte* Variablen — eine ungesetzte bliebe wörtlich stehen und nginx
   startet nicht), und envsubst schreibt auch **Kommentare** um, weshalb die
   Datei die Variablennamen im Fließtext meidet.
+- **Referenzbreite ist ein 360px-Handy** (Galaxy Z Flip). Jede Flex-Zeile mit
+  einem `<input>` braucht am Input ein `min-width: 0` — sonst bleibt der
+  Browser bei der intrinsischen Breite (`size=20`, ~240px) und schiebt den
+  Button aus dem Viewport (genau das war der abgeschnittene „Check"-Button).
+  Ab ≤430px greift in `app.component.ts` eine Media-Query mit schmalerem
+  Seitenrand (14px) und kompakteren Tabs; die Tab-Zeile darf umbrechen, damit
+  auch hochskalierte System-Schriften die Seite nicht breiter machen.
+  Gegenprobe nach Layout-Änderungen: `document.documentElement.scrollWidth`
+  muss auf jeder Route == `clientWidth` sein.
 
 ## Stand (2026-08-02)
 

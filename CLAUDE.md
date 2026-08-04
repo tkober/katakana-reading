@@ -9,14 +9,26 @@ und ein Elo-basiertes Level, und wählt die nächsten Wörter adaptiv danach aus
 
 ```
 frontend/   Angular 20 (standalone components, signals, Router)
-            + Dockerfile (Node-Build → nginx) + nginx.conf
+            + Dockerfile (Node 22 Build → nginx) + nginx.conf + proxy.conf.json
 backend/    FastAPI + PostgreSQL (SQLAlchemy async/asyncpg), verwaltet mit uv
-            + Dockerfile (uv-Image, uvicorn)
-words/      Basis-Vokabular als JSON: basic/ (in git) + additional/ (gitignored)
+            + Dockerfile (uv-Image python3.14, uvicorn) + tests/
+words/      Basis-Vokabular als JSON: basic/ (in git) + additional/ (gitignored,
+            Format siehe words/additional/README.md)
 dbeaver/    Einmaliges DB-Bootstrap (Rollen, Datenbank, Default-Privileges)
 dev/initdb/ Dieselben Rollen für den lokalen Postgres-Container
 compose.yaml  Lokaler Stack: Postgres + Backend + Frontend auf :8080
+prompt.md   Der ursprüngliche Auftrag des Users (Ur-Spec, 30 Zeilen) — erklärt,
+            warum die App so aussieht: Auswertung *pro Kana*, Level ausloten
+            statt Zufallswörter, Zeit mittracken, ein einziger globaler User
+README.md   Menschen-Doku (Setup/Features). CLAUDE.md ist die Agenten-Doku;
+            Änderungen an Features gehören in beide.
 ```
+
+Der Compose-Stack ist eine **Kette von Healthchecks**: Backend startet erst,
+wenn Postgres `pg_isready` meldet, Frontend erst, wenn das Backend
+`/api/health` beantwortet (dafür gibt es die Route). `dev/initdb` legt dabei
+dieselben zwei Rollen an wie die Produktion — der Owner/App-Split wird also
+lokal wirklich durchlaufen und nicht nur behauptet.
 
 **Zwei Container plus Datenbank.** nginx liefert die SPA aus und proxyt `/api/`
 intern ans Backend (`API_UPSTREAM`, Default `katakana-reading-backend:8000`) —
@@ -188,7 +200,7 @@ docker compose up -d postgres
 # Backend (Port 8000) — DB_* aus backend/.env, Vorlage: backend/.env.example
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (49): starten selbst ein Postgres per testcontainers → Docker muss
+# Tests (55): starten selbst ein Postgres per testcontainers → Docker muss
 # laufen. TEST_DB_URL=… zeigt stattdessen auf eine vorhandene DB.
 cd backend && uv run pytest
 
@@ -198,6 +210,42 @@ cd frontend && npm start
 # Kompletter Stack lokal (Port 8080, Volume katakana-db)
 docker compose up --build -d
 ```
+
+### Tests & Verifikation
+
+Alle Tests liegen im Backend; **einen Test-Runner fürs Frontend gibt es
+bewusst nicht** (kein `ng test`, keine Karma/Jest-Abhängigkeit — bei einer
+Single-User-App wäre das mehr Gerüst als Nutzen).
+
+- `tests/conftest.py` — eine **session-weite Wegwerf-Postgres** via
+  testcontainers (`postgres:17-alpine`); jeder Test startet mit leerem
+  Schema (`drop_all`), das `init_db()` neu anlegt. Owner und App sind in den
+  Tests derselbe Superuser: der Rechte-Split ist ein Deployment-Thema und
+  wird vom Compose-Stack abgedeckt, nicht von pytest. Die `session`-Fixture
+  disposed die Engine im **async** Teardown — asyncpg-Verbindungen gehören
+  der Event-Loop, die sie geöffnet hat.
+- `test_kana.py` — Tokenizer + Auswertung, inklusive **Roundtrip über das
+  gesamte geladene Vokabular** (jedes Wort muss tokenisierbar sein und seine
+  eigene generierte Lesung als korrekt akzeptieren). Der Test ist die
+  Absicherung dafür, dass Romaji nirgends gepflegt wird.
+- `test_words.py` — Ladereihenfolge, Vorrang bei Duplikaten, Validierung.
+- `test_game.py` — reine Rating-Mathematik ohne DB (Level-Mapping,
+  asymmetrisches K, Elo-Floor, Score-Stufen). Der Elo-Delta wird dort über
+  einen kleinen Mirror der Formel getestet; die *echte* Rechnung deckt
+  `test_db.py` über `submit_answer` ab.
+- `test_db.py` — Seeding, Pruning, Upload-Vorrang, kaputte gespeicherte
+  Einträge, Rating-Verschiebung bei geändertem base_rating, Elo-Ende-zu-Ende.
+- `test_api.py` — Endpunkte über den `TestClient` (der die Lifespan mitfährt,
+  also auch Schema + Seeding). Wort-IDs sind nicht Teil der API, deshalb
+  holt `_id_of()` sie auf einer **eigenen Engine** aus der DB.
+
+**UI wird im Container verifiziert, nicht in Unit-Tests.** Bewährter Ablauf:
+`docker compose up --build -d`, dann per Chrome-DevTools-MCP mit
+`emulate viewport 360x880x3,mobile` durch die Routen gehen und pro Route
+`document.documentElement.scrollWidth == clientWidth` prüfen (Elemente, die
+in einem eigenen `overflow-x`-Container liegen, dabei ausklammern). Der
+Browser-Cache hält sich hartnäckig an alte Bundles — nach einem Rebuild
+**mit `ignoreCache` neu laden**, sonst testet man die vorige Version.
 
 ## Deployment
 
@@ -217,8 +265,14 @@ docker compose up --build -d
 
 ## Konventionen & Fallstricke
 
-- Python 3.12+, SQLAlchemy 2.0 async (asyncpg). Alles unterhalb von `api.py`
-  ist `async`; `game.py` bekommt die `AsyncSession` durchgereicht.
+- Python ≥3.12 laut `pyproject.toml`, das Image fährt 3.14. SQLAlchemy 2.0
+  async (asyncpg). Alles unterhalb von `api.py` ist `async`; `game.py`
+  bekommt die `AsyncSession` durchgereicht.
+- Im Repo liegen ein paar Dateien, die **kein** aktiver Code sind:
+  `backend/data/*.db` sind SQLite-Reste aus der Zeit vor Postgres (bewusst
+  gitignored statt gelöscht, damit alte Checkouts sauber bleiben),
+  `frontend/dist/` ist Build-Output, `.claude/settings.json` erlaubt nur
+  `uv run *` ohne Rückfrage.
 - **Postgres ≠ SQLite**, beim Portieren von Queries beachten: `LIKE` ist hier
   case-sensitiv (die Wortsuche nutzt deshalb `ilike`), `correct` ist ein
   `boolean` (Aggregate über `count().filter(...)`, nicht `SUM`), und
@@ -262,7 +316,67 @@ docker compose up --build -d
   Gegenprobe nach Layout-Änderungen: `document.documentElement.scrollWidth`
   muss auf jeder Route == `clientWidth` sein.
 
-## Stand (2026-08-02)
+## Übertragbare Muster (wenn diese App als Vorlage dient)
+
+Die folgenden Entscheidungen sind nicht katakana-spezifisch und lassen sich
+auf verwandte Drill-Apps (Konjugationen, Vokabeln, Kanji-Lesungen) übertragen.
+Reihenfolge grob nach „wie viel es ausmacht“.
+
+1. **Elo-Auswahl statt Intervall-SRS.** Es gibt hier **keine** Fälligkeiten,
+   keine Karten-Queue, kein SM-2. Was als Nächstes drankommt, ergibt sich aus
+   der Rating-Distanz: Pool ±160 Elo, gewichtet nach Schwächen, plus
+   15 % Proben oberhalb und 12 % Reviews unterhalb, plus Sperre für die
+   letzten 8 Items. Das hält die Schwierigkeit permanent am Rand des
+   Könnens, ohne Scheduler-Zustand.
+   **Der Preis, ehrlich benannt:** es gibt keine Verfallskurve über Tage. Ein
+   Item, das man einmal konnte, wird nicht deshalb wieder vorgelegt, weil
+   drei Wochen vergangen sind — nur weil sein Rating passt. Wer echtes
+   Spacing will, braucht zusätzlich ein `last_seen` und einen Zeit-Malus im
+   Auswahl-Gewicht; das wäre die kleinste sinnvolle Erweiterung.
+2. **Zwei Ratings, nicht eins.** User *und* Item tragen ein Elo. Ein Item,
+   dessen Level (Handarbeit) falsch geraten ist, kalibriert sich über echte
+   Antworten selbst — man muss Schwierigkeiten nicht korrekt vorsortieren,
+   nur grob anlegen (`base_rating_for`). Ändert sich später die
+   Basis-Formel, verschiebt das Seeding das gelernte Delta mit, statt die
+   Kalibrierung wegzuwerfen.
+3. **Auswertung auf Komponenten-Ebene.** Der wertvollste Teil ist nicht
+   „richtig/falsch“, sondern die Zuordnung der Eingabe zu den *Bestandteilen*
+   des Items: `tokenize()` zerlegt, ein Edit-Distance-DP richtet die
+   Nutzereingabe an den Tokens aus, und jeder Token bekommt ein eigenes
+   Urteil — **auch wenn die Antwort insgesamt falsch war**. Daraus entsteht
+   die Schwächen-Statistik (`kana_stats`, EWMA α=0.2), die wiederum die
+   Auswahl gewichtet. Für Konjugationen ist die Analogie direkt: zerlege in
+   Stamm / Endung / Tempus-Marker, keye die Statistik auf diese Bestandteile
+   und gewichte Aufgaben danach. Dieselbe Kette: zerlegen → ausrichten →
+   pro Bestandteil werten → EWMA → Auswahlgewicht.
+4. **Score-Stufen mit Erwartungs-Floor.** Tempo geht in den Score ein
+   (1.0 / 0.85), aber `effective_score()` deckelt: eine *richtige* Antwort
+   darf nie Elo kosten. Wer Tempo bewertet, braucht diese Klammer, sonst
+   bestraft das System korrekte Antworten auf leichte Items (siehe die
+   イタリア-Zeile oben) — und genau das demotiviert.
+5. **Abgeleitetes nie von Hand pflegen.** Romaji steht in keiner JSON-Datei,
+   es wird beim Seeden aus dem Tokenizer erzeugt; ein Roundtrip-Test prüft
+   jedes geladene Wort. Damit können Inhalt und Auswertung nicht
+   auseinanderlaufen. Für eine Konjugations-App heißt das: die erwarteten
+   Formen aus den Regeln generieren, nicht in die Wortliste schreiben.
+6. **Inhalt aus Dateien + Uploads in der DB.** Öffentliche Basis-Inhalte
+   liegen im Repo/Image, private Listen lädt man über die UI hoch und leben
+   in der DB — sie überstehen jedes Image-Update und tauchen nie in einem
+   öffentlichen Actions-Build auf. `validate_entries()` ist die *einzige*
+   Instanz, die über Gültigkeit entscheidet; Uploads sind
+   alles-oder-nichts, gespeicherte Uploads werden beim Boot tolerant
+   gelesen (ein kaputter Eintrag darf keine Crash-Schleife auslösen).
+7. **Ein einziger globaler User** (`user_profile` mit `CHECK (id = 1)`,
+   keine Auth). Selbst gehostet für eine Person — das spart Login, Sessions
+   und Multi-Tenancy und ist jederzeit erweiterbar.
+8. **Betriebsmuster**: zwei DB-Rollen (Owner nur beim Start für DDL +
+   Seeding, App für Requests, Rechte per `ALTER DEFAULT PRIVILEGES`),
+   Seeding bei jedem Boot mit Pruning, das beantwortete Items schützt,
+   Spaltenänderungen über `migrate_schema()`, zwei Images mit nginx als
+   Same-Origin-Proxy, Verifikation über pytest + Container-Durchlauf im
+   emulierten 360px-Viewport.
+
+## Stand (2026-08-04)
 
 - v1 komplett: adaptives Üben, Kana-Tracking, Heatmap, Stats, Reset mit
   Mehrfach-Bestätigung, Docker-Deployment mit Volume-Persistenz. E2E im

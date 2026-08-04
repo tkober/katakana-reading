@@ -31,6 +31,15 @@ class ResetIn(BaseModel):
     confirm: str
 
 
+class TimeBudgetIn(BaseModel):
+    time_base_ms: int = Field(
+        ge=db.TIME_BASE_RANGE[0], le=db.TIME_BASE_RANGE[1]
+    )
+    time_per_kana_ms: int = Field(
+        ge=db.TIME_PER_KANA_RANGE[0], le=db.TIME_PER_KANA_RANGE[1]
+    )
+
+
 class DictionaryIn(BaseModel):
     name: str = Field(min_length=1, max_length=40)
     entries: Any  # validated by words.validate_entries, which owns the format
@@ -52,6 +61,45 @@ async def profile(session: AsyncSession = Depends(get_session)) -> dict[str, Any
     }
 
 
+@router.get("/settings")
+async def get_settings(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
+    user = await game.get_user(session)
+    return _settings_payload(user)
+
+
+@router.put("/settings")
+async def put_settings(
+    body: TimeBudgetIn, session: AsyncSession = Depends(get_session)
+) -> dict[str, Any]:
+    user = await game.get_user(session)
+    user.time_base_ms = body.time_base_ms
+    user.time_per_kana_ms = body.time_per_kana_ms
+    user.updated_at = func.now()
+    await session.commit()
+    return _settings_payload(user)
+
+
+def _settings_payload(user: db.UserProfile) -> dict[str, Any]:
+    """Includes the bounds and a few worked examples so the UI can label the
+    sliders without duplicating the formula."""
+    return {
+        "time_base_ms": user.time_base_ms,
+        "time_per_kana_ms": user.time_per_kana_ms,
+        "defaults": {
+            "time_base_ms": db.DEFAULT_TIME_BASE_MS,
+            "time_per_kana_ms": db.DEFAULT_TIME_PER_KANA_MS,
+        },
+        "bounds": {
+            "time_base_ms": list(db.TIME_BASE_RANGE),
+            "time_per_kana_ms": list(db.TIME_PER_KANA_RANGE),
+        },
+        "examples": [
+            {"kana": n, "target_time_ms": game.user_target_time_ms(user, n)}
+            for n in (2, 4, 7)
+        ],
+    }
+
+
 @router.get("/word/next")
 async def next_word(session: AsyncSession = Depends(get_session)) -> dict[str, Any]:
     word = await game.pick_next_word(session)
@@ -62,7 +110,7 @@ async def next_word(session: AsyncSession = Depends(get_session)) -> dict[str, A
         "katakana": word.katakana,
         "level": word.level,
         "kana_count": kana_count,
-        "target_time_ms": game.target_time_ms(kana_count),
+        "target_time_ms": game.user_target_time_ms(user, kana_count),
         "user_level": game.level_for_elo(user.elo),
         "elo": round(user.elo, 1),
     }

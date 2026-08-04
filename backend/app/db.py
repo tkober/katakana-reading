@@ -27,10 +27,12 @@ from sqlalchemy import (
     delete,
     func,
     select,
+    text,
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
@@ -47,6 +49,13 @@ log = logging.getLogger(__name__)
 START_ELO = 1000.0
 UPSERT_CHUNK = 500  # rows per INSERT ... ON CONFLICT (keeps the bind count sane)
 
+# Reading-speed budget: base + per-kana, both user-tunable (Settings tab).
+# Typing counts towards the time, so a touchscreen needs more than a keyboard.
+DEFAULT_TIME_BASE_MS = 2000
+DEFAULT_TIME_PER_KANA_MS = 900
+TIME_BASE_RANGE = (500, 10_000)
+TIME_PER_KANA_RANGE = (200, 5_000)
+
 
 class Base(DeclarativeBase):
     pass
@@ -60,6 +69,12 @@ class UserProfile(Base):
     elo: Mapped[float] = mapped_column(Float, nullable=False)
     current_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     best_streak: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    time_base_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=str(DEFAULT_TIME_BASE_MS)
+    )
+    time_per_kana_ms: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=str(DEFAULT_TIME_PER_KANA_MS)
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -193,12 +208,31 @@ async def init_db() -> None:
     try:
         async with owner_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await migrate_schema(conn)
         async with async_sessionmaker(owner_engine, expire_on_commit=False)() as session:
             await ensure_profile(session)
             await seed_words(session)
             await session.commit()
     finally:
         await owner_engine.dispose()
+
+
+async def migrate_schema(conn: AsyncConnection) -> None:
+    """Add columns that `create_all` cannot: it only creates missing *tables*.
+
+    Idempotent (``IF NOT EXISTS``) and owner-only, so it can run on every
+    boot. Keep the statements append-only — an existing database carries real
+    practice history.
+    """
+    await conn.execute(
+        text(
+            "ALTER TABLE user_profile "
+            f"ADD COLUMN IF NOT EXISTS time_base_ms INTEGER NOT NULL "
+            f"DEFAULT {DEFAULT_TIME_BASE_MS}, "
+            f"ADD COLUMN IF NOT EXISTS time_per_kana_ms INTEGER NOT NULL "
+            f"DEFAULT {DEFAULT_TIME_PER_KANA_MS}"
+        )
+    )
 
 
 async def ensure_profile(session: AsyncSession) -> None:
@@ -334,7 +368,8 @@ async def uploaded_dictionaries(session: AsyncSession) -> dict[str, datetime]:
 async def reset_all(session: AsyncSession) -> None:
     """Wipe all progress: attempts, kana stats, streaks, Elo, word ratings.
 
-    Uploaded dictionaries are vocabulary, not progress — they stay.
+    Uploaded dictionaries are vocabulary, not progress — they stay, and so
+    does the time budget: it describes the input device, not the learner.
     """
     await session.execute(delete(Attempt))
     await session.execute(delete(KanaStat))

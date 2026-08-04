@@ -161,13 +161,36 @@ type SessionState = 'idle' | 'active' | 'ended';
 
             <div class="hint-row">
               @if (result() === null) {
-                <span class="timer" [class.overtime]="elapsedMs() > w.target_time_ms">
-                  {{ elapsedMs() / 1000 | number: '1.1-1' }} s
-                </span>
-                <span class="hint"
-                  >Target: under
-                  {{ w.target_time_ms / 1000 | number: '1.0-1' }} s</span
+                <div
+                  class="countdown"
+                  [class.low]="!overtime() && fractionLeft() <= 0.25"
+                  [class.overtime]="overtime()"
                 >
+                  <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
+                    <circle class="ring-track" cx="22" cy="22" r="19" />
+                    <circle
+                      class="ring-value"
+                      cx="22"
+                      cy="22"
+                      r="19"
+                      transform="rotate(-90 22 22)"
+                      [attr.stroke-dasharray]="circumference"
+                      [attr.stroke-dashoffset]="ringOffset()"
+                    />
+                  </svg>
+                  <span class="ring-num">
+                    {{ overtime() ? '+' : ''
+                    }}{{ absRemainingMs() / 1000 | number: '1.1-1' }}
+                  </span>
+                </div>
+                <span class="hint">
+                  @if (overtime()) {
+                    over the {{ w.target_time_ms / 1000 | number: '1.0-1' }} s
+                    target
+                  } @else {
+                    seconds left of {{ w.target_time_ms / 1000 | number: '1.0-1' }} s
+                  }
+                </span>
               } @else {
                 <span class="hint">Press Enter for the next word</span>
               }
@@ -409,17 +432,55 @@ type SessionState = 'idle' | 'active' | 'ended';
       }
       .hint-row {
         display: flex;
-        gap: 16px;
-        align-items: baseline;
+        gap: 12px;
+        align-items: center;
         justify-content: center;
-        min-height: 24px;
+        min-height: 48px;
       }
-      .timer {
+      .countdown {
+        position: relative;
+        width: 44px;
+        height: 44px;
+        flex: none;
+      }
+      .ring {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .ring-track,
+      .ring-value {
+        fill: none;
+        stroke-width: 4;
+      }
+      .ring-track {
+        stroke: var(--grid);
+      }
+      .ring-value {
+        stroke: var(--accent);
+        stroke-linecap: round;
+        /* Matches the 100ms ticker, so the ring glides instead of stepping. */
+        transition: stroke-dashoffset 0.1s linear, stroke 0.2s ease;
+      }
+      .countdown.low .ring-value {
+        stroke: var(--critical);
+      }
+      .countdown.overtime .ring-value {
+        stroke: transparent;
+      }
+      .ring-num {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 600;
         font-variant-numeric: tabular-nums;
         color: var(--ink-2);
-        font-size: 14px;
       }
-      .timer.overtime {
+      .countdown.low .ring-num,
+      .countdown.overtime .ring-num {
         color: var(--critical);
       }
       .hint {
@@ -450,6 +511,29 @@ export class PracticeComponent implements OnDestroy {
   readonly sessionCorrect = signal(0);
   readonly sessionElo = signal(0);
   readonly sessionTimeMs = signal(0);
+
+  /** Countdown ring: r=19 in a 44×44 viewBox. */
+  readonly circumference = 2 * Math.PI * 19;
+
+  readonly fractionLeft = computed(() => {
+    const w = this.word();
+    if (!w || !w.target_time_ms) {
+      return 1;
+    }
+    const left = (w.target_time_ms - this.elapsedMs()) / w.target_time_ms;
+    return Math.max(0, Math.min(1, left));
+  });
+  readonly overtime = computed(() => {
+    const w = this.word();
+    return !!w && this.elapsedMs() > w.target_time_ms;
+  });
+  readonly absRemainingMs = computed(() => {
+    const w = this.word();
+    return w ? Math.abs(w.target_time_ms - this.elapsedMs()) : 0;
+  });
+  readonly ringOffset = computed(
+    () => this.circumference * (1 - this.fractionLeft()),
+  );
 
   readonly sessionAccuracy = computed(() =>
     this.sessionCount() ? this.sessionCorrect() / this.sessionCount() : 0,

@@ -91,6 +91,51 @@ def test_answer_reports_source_dictionary(client):
     assert body["correct"] is True
 
 
+def test_time_budget_is_configurable(client):
+    body = client.get("/api/settings").json()
+    assert body["time_base_ms"] == db.DEFAULT_TIME_BASE_MS
+    assert body["time_per_kana_ms"] == db.DEFAULT_TIME_PER_KANA_MS
+
+    saved = client.put(
+        "/api/settings", json={"time_base_ms": 3000, "time_per_kana_ms": 1200}
+    )
+    assert saved.status_code == 200
+    assert saved.json()["examples"] == [
+        {"kana": 2, "target_time_ms": 5400},
+        {"kana": 4, "target_time_ms": 7800},
+        {"kana": 7, "target_time_ms": 11400},
+    ]
+
+    # the new budget reaches both the served word and the verdict
+    assert client.get("/api/word/next").json()["target_time_ms"] in (5400, 7800, 11400)
+    answer = client.post(
+        "/api/answer",
+        json={"word_id": _id_of("コーヒー"), "answer": "koohii", "time_ms": 7000},
+    ).json()
+    assert answer["target_time_ms"] == 7800  # コーヒー is 4 kana
+    assert answer["correct"] and answer["fast"]  # 7.0s would be too slow by default
+
+    assert client.get("/api/settings").json()["time_base_ms"] == 3000
+    # out of range is rejected, the stored value survives
+    assert client.put(
+        "/api/settings", json={"time_base_ms": 60_000, "time_per_kana_ms": 1200}
+    ).status_code == 422
+    assert client.get("/api/settings").json()["time_base_ms"] == 3000
+
+
+def test_reset_keeps_the_time_budget(client):
+    client.put("/api/settings", json={"time_base_ms": 3000, "time_per_kana_ms": 1200})
+    client.post(
+        "/api/answer",
+        json={"word_id": _id_of("バス"), "answer": "basu", "time_ms": 900},
+    )
+    assert client.post("/api/reset", json={"confirm": "RESET"}).status_code == 200
+
+    body = client.get("/api/settings").json()
+    assert (body["time_base_ms"], body["time_per_kana_ms"]) == (3000, 1200)
+    assert client.get("/api/stats").json()["total_attempts"] == 0
+
+
 def test_stats_after_an_answer(client):
     client.post(
         "/api/answer",

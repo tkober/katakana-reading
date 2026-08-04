@@ -52,6 +52,38 @@ async def test_answered_words_survive_pruning(session, tmp_path, monkeypatch):
     assert await session.scalar(select(func.count()).select_from(db.Attempt)) == 1
 
 
+async def test_slow_but_correct_review_word_costs_nothing(
+    session, tmp_path, monkeypatch
+):
+    """The real case from the DB: イタリア (730) answered right but slowly at
+    Elo 1183 used to cost ~3 Elo. Same word rating, same distance, through
+    the actual submit_answer path."""
+    await setup_db(tmp_path, monkeypatch, [
+        {"katakana": "イタリア", "meaning": "Italy", "level": 1},
+    ])
+    word = await session.scalar(select(db.Word).where(db.Word.katakana == "イタリア"))
+    word.rating = 730.0
+    user = await game.get_user(session)
+    user.elo = 1183.4
+    await session.commit()
+    word_rating_before = word.rating
+
+    slow = game.target_time_ms(4) + 3000
+    result = await game.submit_answer(session, word.id, "itaria", slow)
+
+    assert result["correct"] and not result["fast"]
+    assert result["elo"]["delta"] == 0.0
+    await session.refresh(word)
+    assert word.rating == word_rating_before  # nothing learned, nothing moved
+
+    # ... while getting it wrong on the same easy word still stings
+    user.elo = 1183.4
+    await session.commit()
+    wrong = await game.submit_answer(session, word.id, "itaru", slow)
+    assert not wrong["correct"]
+    assert wrong["elo"]["delta"] < -20
+
+
 async def test_rating_shifts_with_base_rating(session, tmp_path, monkeypatch):
     await setup_db(tmp_path, monkeypatch, [
         {"katakana": "バス", "meaning": "bus", "level": 1},

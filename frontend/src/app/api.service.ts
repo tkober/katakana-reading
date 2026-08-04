@@ -9,6 +9,7 @@ import {
   NextWord,
   Profile,
   Stats,
+  TimeBudget,
   UploadResult,
   WordsResponse,
 } from './models';
@@ -93,6 +94,17 @@ export class ApiService {
       }
     }
     return this.http.get<WordsResponse>('/api/words', { params });
+  }
+
+  timeBudget(): Observable<TimeBudget> {
+    return this.http.get<TimeBudget>('/api/settings');
+  }
+
+  saveTimeBudget(baseMs: number, perKanaMs: number): Observable<TimeBudget> {
+    return this.http.put<TimeBudget>('/api/settings', {
+      time_base_ms: baseMs,
+      time_per_kana_ms: perKanaMs,
+    });
   }
 
   reset(): Observable<{ status: string }> {

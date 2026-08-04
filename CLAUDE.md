@@ -67,12 +67,27 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   12 % „Review“-Wörter deutlich unterhalb (−250…−600; Versagen kostet dank
   Elo-Erwartung + K=36 ~30 Punkte), keine Wiederholung der letzten 8 Wörter.
   Score: richtig & schnell = 1.0, richtig aber langsam = 0.85, falsch =
-  0.35 × Kana-Quote. Zeitziel: 1500 ms + 700 ms pro Kana.
+  0.35 × Kana-Quote. **Bei richtiger Antwort hebt `effective_score()` den
+  Score auf die Elo-Erwartung an**, so dass der Delta nie negativ wird: ab
+  ~300 Elo Abstand liegt die Erwartung über 0.85, ein korrekt gelesenes
+  Review-Wort kostete sonst Elo (real passiert: イタリア/730 bei Elo 1183 →
+  −2,9). Tempo entscheidet damit über die *Höhe* des Gewinns, nicht über
+  Gewinn/Verlust; falsche Antworten bleiben unangetastet. Der
+  Wort-Rating-Update nutzt denselben angehobenen Score — „nichts gelernt,
+  nichts verschoben“. Zeitziel: `base + per_kana × Kana`, Defaults
+  2000 ms/900 ms, **pro User einstellbar** (`user_target_time_ms(user, n)`;
+  die parameterlose `target_time_ms()` gilt nur noch als Default-Rechner).
+  Das Budget deckt Lesen **und Tippen** ab — auf dem Touchscreen dauert das
+  spürbar länger als auf einer echten Tastatur, deshalb ist es verstellbar.
 - `db.py` — ORM-Modelle, Engines und Seeding. Die App-Engine wird **lazy**
   erzeugt (`get_engine()`/`get_sessionmaker()`, `reset_engines()` für Tests
   und Shutdown), `get_session()` ist die FastAPI-Dependency. `init_db()`
   öffnet eine kurzlebige **Owner**-Engine, legt das Schema an
-  (`Base.metadata.create_all`) und seedet in derselben Session.
+  (`Base.metadata.create_all` + `migrate_schema()`) und seedet in derselben
+  Session. **`create_all` legt nur fehlende Tabellen an, keine Spalten** —
+  neue Spalten brauchen deshalb eine Zeile in `migrate_schema()`
+  (`ALTER TABLE … ADD COLUMN IF NOT EXISTS`, idempotent, läuft bei jedem
+  Boot, append-only: die bestehende DB trägt echte Praxis-Historie).
   `desired_words()` merged Datei-Dicts + Uploads (Uploads gewinnen) und
   **re-validiert gespeicherte Uploads**, wobei kaputte Einträge nur geloggt
   und übersprungen werden — ein schlechter Eintrag darf den Start nie
@@ -89,6 +104,8 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
 - `main.py` — App-Setup, Lifespan (`init_db` beim Start, Engine-Dispose beim
   Stop) und CORS aus der Env. **Keine Statics mehr** — die SPA liefert nginx.
 - `api.py` — Routen: `GET /api/profile` (schlanker Header-State),
+  `GET`/`PUT /api/settings` (Zeitbudget: Werte, Defaults, Grenzen und drei
+  gerechnete Beispiele — die UI dupliziert die Formel nicht),
   `GET /api/word/next`, `POST /api/answer` (Antwort enthält u. a. `source`,
   wird bei der Auflösung angezeigt),
   `GET /api/stats`, `GET /api/dictionaries` (Zusammensetzung je Source:
@@ -106,7 +123,9 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
 
 ### Datenmodell (PostgreSQL)
 
-- `user_profile` (id=1, CHECK) — elo, current_streak, best_streak
+- `user_profile` (id=1, CHECK) — elo, current_streak, best_streak,
+  time_base_ms/time_per_kana_ms (Zeitbudget; überlebt `reset_all`, weil es
+  das Eingabegerät beschreibt, nicht den Lernstand)
 - `words` — katakana, romaji (generiert), meaning, level, source,
   rating (dynamisch), base_rating, times_served/correct
 - `attempts` — Antwort-Historie inkl. time_ms, kana_correct/total, elo
@@ -128,7 +147,10 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   (`idle` → `active` → `ended`): Die Session startet **nicht** automatisch,
   der Timer läuft erst ab dem ersten Wort. „End session" zeigt eine
   Zusammenfassung (Wörter, Trefferquote, Ø-Zeit, Elo-Delta). Wort-Karte,
-  Timer, Romaji-Input, Feedback pro Kana-Token (✓/✕), Enter-Flow
+  **Countdown-Ring** (SVG, `stroke-dashoffset` aus `fractionLeft()`, r=19 in
+  einer 44er-Box; Restsekunden in der Mitte, letzte 25 % und Überzeit rot,
+  bei Überzeit zählt er als „+x,x s" hoch), Romaji-Input, Feedback pro
+  Kana-Token (✓/✕), Enter-Flow
   (prüfen → weiter), Herkunfts-Dictionary als Chip bei der Auflösung.
 - `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
@@ -141,6 +163,9 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   Dateinamen vorbelegt, Fehler des Backends werden pro Eintrag angezeigt;
   Template-Download als normaler `<a download>`) + filterbarer Wort-Browser
   (Dictionary/Level/Suche/Sortierung, 50 pro Seite, Suche entprellt).
+- `settings.component.ts` — Zeitbudget (zwei Slider, Live-Vorschau an drei
+  echten Wörtern, „Saved"/Revert/„Back to defaults"; Grenzen und Defaults
+  kommen aus `/api/settings`) + mehrstufiger Reset.
 - `heatmap.component.ts` — Gojūon-Grid + Chips für Kombinationen (キャ, ファ, ッ,
   ー …), nutzt die geteilte Skala aus `ramp.ts`.
 - `ramp.ts` — sequenzielle Ein-Farb-Skala (blau, hell→dunkel = mehr; dark mode:
@@ -266,6 +291,13 @@ docker compose up --build -d
   in der DB statt im Image — der Auslöser war, dass die Images öffentlich in
   GitHub Actions gebaut werden und `sap.json`/`ai.json` dort nichts zu suchen
   haben.
+- **Mobile-Runde (2026-08-04)**, ausgelöst vom Üben auf dem Handy
+  (Galaxy Z Flip, 360 CSS-px): Overflow-Fix (Check-Button abgeschnitten,
+  Seite horizontal scrollbar), Elo-Floor bei korrekter Antwort, Zeitbudget
+  von 1500/700 ms auf 2000/900 ms angehoben **und** im Settings-Tab
+  einstellbar (erste Spaltenmigration → `migrate_schema()`), Countdown-Ring
+  in der Übung. Auslöser für den Elo-Floor war eine DB-Zeile: イタリア
+  richtig gelesen, 7,3 s statt 4,3 s → −2,9 Elo.
 
 #### Zur sap.json-Recherche (wichtig für Nachfolger)
 

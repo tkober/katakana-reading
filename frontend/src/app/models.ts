@@ -156,3 +156,11 @@ export interface Profile {
   level: number;
   streak: number;
 }
+
+export interface TimeBudget {
+  time_base_ms: number;
+  time_per_kana_ms: number;
+  defaults: { time_base_ms: number; time_per_kana_ms: number };
+  bounds: { time_base_ms: [number, number]; time_per_kana_ms: [number, number] };
+  examples: { kana: number; target_time_ms: number }[];
+}

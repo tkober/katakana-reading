@@ -9,7 +9,14 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .db import Attempt, KanaStat, UserProfile, Word
+from .db import (
+    DEFAULT_TIME_BASE_MS,
+    DEFAULT_TIME_PER_KANA_MS,
+    Attempt,
+    KanaStat,
+    UserProfile,
+    Word,
+)
 from .kana import evaluate, tokenize
 
 # Asymmetric K: climbing is slow, failing hurts — especially failing an
@@ -44,9 +51,21 @@ def level_progress(elo: float) -> float:
     return max(0.0, min(1.0, (elo - floor) / LEVEL_WIDTH))
 
 
-def target_time_ms(kana_count: int) -> int:
-    """Reading-speed target: base + per-kana budget."""
-    return 1500 + 700 * kana_count
+def target_time_ms(
+    kana_count: int,
+    base_ms: int = DEFAULT_TIME_BASE_MS,
+    per_kana_ms: int = DEFAULT_TIME_PER_KANA_MS,
+) -> int:
+    """Reading-speed target: base + per-kana budget.
+
+    The budget covers reading *and* typing, which is why it is tunable: a
+    touchscreen keyboard needs noticeably more than a real one.
+    """
+    return base_ms + per_kana_ms * kana_count
+
+
+def user_target_time_ms(user: UserProfile, kana_count: int) -> int:
+    return target_time_ms(kana_count, user.time_base_ms, user.time_per_kana_ms)
 
 
 def answer_score(correct: bool, kana_correct: int, kana_total: int,
@@ -54,6 +73,19 @@ def answer_score(correct: bool, kana_correct: int, kana_total: int,
     if correct:
         return 1.0 if fast else 0.85
     return 0.35 * (kana_correct / max(1, kana_total))
+
+
+def effective_score(score: float, exp: float, correct: bool) -> float:
+    """The score that actually goes into the Elo update.
+
+    A correct reading must never cost Elo. On a review word far below the
+    user (from ~300 Elo down) the expectation climbs above the 0.85 "correct
+    but slow" tier, which used to turn a right answer into a loss. Lifting
+    the score to the expectation makes speed decide how *much* you gain, not
+    whether you lose. Wrong answers are untouched — that is what keeps the
+    review words sharp.
+    """
+    return max(score, exp) if correct else score
 
 
 async def get_user(session: AsyncSession) -> UserProfile:
@@ -130,12 +162,17 @@ async def submit_answer(session: AsyncSession, word_id: int, answer: str,
     time_ms = max(0, min(int(time_ms), 300_000))
     tokens = tokenize(word.katakana)
     ev = evaluate(tokens, answer)
-    fast = ev.correct and time_ms <= target_time_ms(len(tokens))
 
     user = await get_user(session)
+    target = user_target_time_ms(user, len(tokens))
+    fast = ev.correct and time_ms <= target
     elo_before = user.elo
-    score = answer_score(ev.correct, ev.kana_correct, ev.kana_total, time_ms, fast)
     exp = expected_score(elo_before, word.rating)
+    score = effective_score(
+        answer_score(ev.correct, ev.kana_correct, ev.kana_total, time_ms, fast),
+        exp,
+        ev.correct,
+    )
     k_user = K_USER_GAIN if score >= exp else K_USER_LOSS
     elo_after = elo_before + k_user * (score - exp)
     new_word_rating = word.rating + K_WORD * ((1.0 - score) - (1.0 - exp))
@@ -187,7 +224,7 @@ async def submit_answer(session: AsyncSession, word_id: int, answer: str,
     return {
         "correct": ev.correct,
         "fast": fast,
-        "target_time_ms": target_time_ms(len(tokens)),
+        "target_time_ms": target,
         "romaji": word.romaji,
         "meaning": word.meaning,
         "katakana": word.katakana,

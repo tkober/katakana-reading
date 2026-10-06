@@ -13,10 +13,9 @@ import { TimeBudget } from './models';
       <div class="panel">
         <h2>Reading time budget</h2>
         <p>
-          How long a word may take before it counts as slow. The clock covers
-          reading <em>and</em> typing, so a touchscreen keyboard needs a bigger
-          budget than a real one. Being slow never costs Elo — it only earns
-          less than a fast answer.
+          How long a word may take before it counts as slow. The clock covers reading
+          <em>and</em> typing, so a touchscreen keyboard needs a bigger budget than a real one.
+          Being slow never costs Elo — it only earns less than a fast answer.
         </p>
 
         @if (budget(); as b) {
@@ -77,9 +76,7 @@ import { TimeBudget } from './models';
               <span class="saved-note">Saved</span>
             }
             @if (!atDefaults()) {
-              <button class="btn-quiet" (click)="useDefaults()">
-                Back to defaults
-              </button>
+              <button class="btn-quiet" (click)="useDefaults()">Back to defaults</button>
             }
           </div>
           @if (budgetError()) {
@@ -93,9 +90,8 @@ import { TimeBudget } from './models';
       <div class="panel danger">
         <h2>Reset progress</h2>
         <p>
-          Deletes <strong>all</strong> historical data: Elo &amp; level, kana
-          statistics, answer history and the calibrated word difficulties. The
-          dictionary itself is kept.
+          Deletes <strong>all</strong> historical data: Elo &amp; level, kana statistics, answer
+          history and the calibrated word difficulties. The dictionary itself is kept.
         </p>
 
         @if (done()) {
@@ -103,25 +99,19 @@ import { TimeBudget } from './models';
         } @else {
           @switch (step()) {
             @case (0) {
-              <button class="btn-outline" (click)="step.set(1)">
-                Reset progress…
-              </button>
+              <button class="btn-outline" (click)="step.set(1)">Reset progress…</button>
             }
             @case (1) {
-              <p class="warn">
-                Are you sure? This action <strong>cannot</strong> be undone.
-              </p>
+              <p class="warn">Are you sure? This action <strong>cannot</strong> be undone.</p>
               <div class="row">
                 <button class="btn-outline" (click)="cancel()">Cancel</button>
-                <button class="btn-danger" (click)="step.set(2)">
-                  Yes, I'm sure
-                </button>
+                <button class="btn-danger" (click)="step.set(2)">Yes, I'm sure</button>
               </div>
             }
             @case (2) {
               <p class="warn">
-                Final confirmation: type <code>RESET</code> into the field to
-                delete everything for good.
+                Final confirmation: type <code>RESET</code> into the field to delete everything for
+                good.
               </p>
               <div class="row">
                 <input
@@ -151,10 +141,9 @@ import { TimeBudget } from './models';
       <div class="panel">
         <h2>About this app</h2>
         <p>
-          Adaptive katakana reading practice: word selection follows your Elo,
-          regularly probes your limit and favors words containing kana you still
-          struggle with. Hepburn and Kunrei romaji are both accepted
-          (e.g. <code>shi</code>/<code>si</code>), long vowels as doubled vowels
+          Adaptive katakana reading practice: word selection follows your Elo, regularly probes your
+          limit and favors words containing kana you still struggle with. Hepburn and Kunrei romaji
+          are both accepted (e.g. <code>shi</code>/<code>si</code>), long vowels as doubled vowels
           or <code>-</code>.
         </p>
       </div>
@@ -349,10 +338,7 @@ export class SettingsComponent implements OnInit {
 
   readonly dirty = computed(() => {
     const b = this.budget();
-    return (
-      !!b &&
-      (b.time_base_ms !== this.baseMs() || b.time_per_kana_ms !== this.perKanaMs())
-    );
+    return !!b && (b.time_base_ms !== this.baseMs() || b.time_per_kana_ms !== this.perKanaMs());
   });
 
   readonly atDefaults = computed(() => {

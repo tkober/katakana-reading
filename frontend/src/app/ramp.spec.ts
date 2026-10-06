@@ -17,9 +17,7 @@ describe('rampStep', () => {
   });
 
   it('is monotonically non-decreasing in ramp index as the magnitude grows', () => {
-    const indices = [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1].map((v) =>
-      RAMP.indexOf(rampStep(v).bg),
-    );
+    const indices = [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1].map((v) => RAMP.indexOf(rampStep(v).bg));
     for (let i = 1; i < indices.length; i++) {
       expect(indices[i]).toBeGreaterThanOrEqual(indices[i - 1]);
     }

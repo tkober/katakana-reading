@@ -24,13 +24,10 @@ type SessionState = 'idle' | 'active' | 'ended';
         <section class="gate">
           <h2>Ready to read?</h2>
           <p>
-            Words are picked to match your level and to target the kana you
-            struggle with. The clock only starts once the first word is on
-            screen — take your time until then.
+            Words are picked to match your level and to target the kana you struggle with. The clock
+            only starts once the first word is on screen — take your time until then.
           </p>
-          <button class="primary" (click)="startSession()">
-            Start training session
-          </button>
+          <button class="primary" (click)="startSession()">Start training session</button>
         </section>
       }
 
@@ -52,9 +49,7 @@ type SessionState = 'idle' | 'active' | 'ended';
               </div>
               <div class="sum-tile">
                 <span class="sum-label">Ø per word</span>
-                <span class="sum-value">
-                  {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s
-                </span>
+                <span class="sum-value"> {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s </span>
               </div>
               <div class="sum-tile">
                 <span class="sum-label">Elo</span>
@@ -70,9 +65,7 @@ type SessionState = 'idle' | 'active' | 'ended';
           } @else {
             <p class="muted">No words answered in this session.</p>
           }
-          <button class="primary" (click)="startSession()">
-            Start another session
-          </button>
+          <button class="primary" (click)="startSession()">Start another session</button>
         </section>
       }
 
@@ -83,9 +76,7 @@ type SessionState = 'idle' | 'active' | 'ended';
               <span class="session-stat">
                 Session: <strong>{{ sessionCorrect() }}/{{ sessionCount() }}</strong>
                 @if (sessionCount() > 0) {
-                  <span class="muted">
-                    · Ø {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s
-                  </span>
+                  <span class="muted"> · Ø {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s </span>
                 }
               </span>
               <button class="ghost" (click)="endSession()">End session</button>
@@ -119,19 +110,14 @@ type SessionState = 'idle' | 'active' | 'ended';
             </div>
 
             @if (result(); as r) {
-              <div
-                class="verdict"
-                [class.verdict-ok]="r.correct"
-                [class.verdict-bad]="!r.correct"
-              >
+              <div class="verdict" [class.verdict-ok]="r.correct" [class.verdict-bad]="!r.correct">
                 <strong>{{
                   r.correct ? (r.fast ? 'Correct & fast!' : 'Correct!') : 'Not quite.'
                 }}</strong>
                 <span
                   >{{ r.kana_correct }}/{{ r.kana_total }} kana ·
-                  {{ elapsedMs() / 1000 | number: '1.1-1' }} s ·
-                  {{ r.elo.delta >= 0 ? '+' : '' }}{{ r.elo.delta | number: '1.1-1' }}
-                  Elo</span
+                  {{ elapsedMs() / 1000 | number: '1.1-1' }} s · {{ r.elo.delta >= 0 ? '+' : ''
+                  }}{{ r.elo.delta | number: '1.1-1' }} Elo</span
                 >
                 @if (!r.correct && answered()) {
                   <span class="your-answer">Your answer: “{{ answered() }}”</span>
@@ -147,9 +133,7 @@ type SessionState = 'idle' | 'active' | 'ended';
                 name="answer"
                 [(ngModel)]="answer"
                 [readonly]="result() !== null"
-                [placeholder]="
-                  result() ? 'Press Enter for the next word' : 'Type romaji…'
-                "
+                [placeholder]="result() ? 'Press Enter for the next word' : 'Type romaji…'"
                 autocomplete="off"
                 autocapitalize="off"
                 spellcheck="false"
@@ -179,14 +163,12 @@ type SessionState = 'idle' | 'active' | 'ended';
                     />
                   </svg>
                   <span class="ring-num">
-                    {{ overtime() ? '+' : ''
-                    }}{{ absRemainingMs() / 1000 | number: '1.1-1' }}
+                    {{ overtime() ? '+' : '' }}{{ absRemainingMs() / 1000 | number: '1.1-1' }}
                   </span>
                 </div>
                 <span class="hint">
                   @if (overtime()) {
-                    over the {{ w.target_time_ms / 1000 | number: '1.0-1' }} s
-                    target
+                    over the {{ w.target_time_ms / 1000 | number: '1.0-1' }} s target
                   } @else {
                     seconds left of {{ w.target_time_ms / 1000 | number: '1.0-1' }} s
                   }
@@ -460,7 +442,9 @@ type SessionState = 'idle' | 'active' | 'ended';
         stroke: var(--accent);
         stroke-linecap: round;
         /* Matches the 100ms ticker, so the ring glides instead of stepping. */
-        transition: stroke-dashoffset 0.1s linear, stroke 0.2s ease;
+        transition:
+          stroke-dashoffset 0.1s linear,
+          stroke 0.2s ease;
       }
       .countdown.low .ring-value {
         stroke: var(--critical);
@@ -531,9 +515,7 @@ export class PracticeComponent implements OnDestroy {
     const w = this.word();
     return w ? Math.abs(w.target_time_ms - this.elapsedMs()) : 0;
   });
-  readonly ringOffset = computed(
-    () => this.circumference * (1 - this.fractionLeft()),
-  );
+  readonly ringOffset = computed(() => this.circumference * (1 - this.fractionLeft()));
 
   readonly sessionAccuracy = computed(() =>
     this.sessionCount() ? this.sessionCorrect() / this.sessionCount() : 0,
@@ -619,10 +601,7 @@ export class PracticeComponent implements OnDestroy {
 
   private startTicker(): void {
     this.stopTicker();
-    this.ticker = setInterval(
-      () => this.elapsedMs.set(performance.now() - this.startedAt),
-      100,
-    );
+    this.ticker = setInterval(() => this.elapsedMs.set(performance.now() - this.startedAt), 100);
   }
 
   private stopTicker(): void {

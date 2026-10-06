@@ -83,9 +83,7 @@ const PAGE_SIZE = 50;
                 @if (d.origin === 'upload') {
                   @if (pendingDelete() === d.source) {
                     <button class="link" (click)="pendingDelete.set(null)">Cancel</button>
-                    <button class="link danger" (click)="remove(d.source)">
-                      Really delete
-                    </button>
+                    <button class="link danger" (click)="remove(d.source)">Really delete</button>
                   } @else {
                     <button class="link danger" (click)="pendingDelete.set(d.source)">
                       Delete
@@ -109,10 +107,9 @@ const PAGE_SIZE = 50;
         <div class="panel">
           <h2>Add a dictionary</h2>
           <p class="panel-note">
-            Upload a JSON word list to practice your own vocabulary. It is stored
-            in the database — not in the app image — so it survives updates and
-            stays off GitHub. Uploading the same name again replaces that
-            dictionary.
+            Upload a JSON word list to practice your own vocabulary. It is stored in the database —
+            not in the app image — so it survives updates and stays off GitHub. Uploading the same
+            name again replaces that dictionary.
           </p>
           <div class="upload-row">
             <input
@@ -140,9 +137,7 @@ const PAGE_SIZE = 50;
             >
               Upload
             </button>
-            <a class="link" href="/api/dictionaries/template" download>
-              Download template
-            </a>
+            <a class="link" href="/api/dictionaries/template" download> Download template </a>
           </div>
           @if (uploadError()) {
             <p class="warn">{{ uploadError() }}</p>
@@ -234,15 +229,9 @@ const PAGE_SIZE = 50;
               <div class="pager">
                 <button [disabled]="offset() === 0" (click)="page(-1)">Previous</button>
                 <span class="muted"
-                  >Page {{ offset() / pageSize + 1 }} of
-                  {{ Math.ceil(w.total / pageSize) }}</span
+                  >Page {{ offset() / pageSize + 1 }} of {{ Math.ceil(w.total / pageSize) }}</span
                 >
-                <button
-                  [disabled]="offset() + pageSize >= w.total"
-                  (click)="page(1)"
-                >
-                  Next
-                </button>
+                <button [disabled]="offset() + pageSize >= w.total" (click)="page(1)">Next</button>
               </div>
             }
           } @else {

@@ -59,9 +59,15 @@ import { RAMP, RampStep, rampStep } from './ramp';
           <div class="tile">
             <div class="tile-label">Reading speed</div>
             <div class="tile-value">
-              {{ s.total_attempts > 0 ? (s.avg_time_per_kana_ms / 1000 | number: '1.1-1') + ' s' : '–' }}
+              {{
+                s.total_attempts > 0
+                  ? (s.avg_time_per_kana_ms / 1000 | number: '1.1-1') + ' s'
+                  : '–'
+              }}
             </div>
-            <div class="tile-sub">per kana · avg {{ s.avg_time_ms / 1000 | number: '1.1-1' }} s per word</div>
+            <div class="tile-sub">
+              per kana · avg {{ s.avg_time_ms / 1000 | number: '1.1-1' }} s per word
+            </div>
           </div>
           <div class="tile">
             <div class="tile-label">Streak</div>
@@ -81,9 +87,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
                 </span>
               }
             </div>
-            <p class="panel-note">
-              Practice now favors words containing these kana.
-            </p>
+            <p class="panel-note">Practice now favors words containing these kana.</p>
           </div>
         }
 
@@ -178,8 +182,8 @@ import { RAMP, RampStep, rampStep } from './ramp';
             <span class="legend-note">– = nothing answered yet</span>
           </div>
           <p class="panel-note">
-            Ring = share of words seen at least once; colored tile = success
-            rate of all answers in that group (same scale as kana confidence).
+            Ring = share of words seen at least once; colored tile = success rate of all answers in
+            that group (same scale as kana confidence).
           </p>
         </div>
 
@@ -208,7 +212,11 @@ import { RAMP, RampStep, rampStep } from './ramp';
                   @for (a of s.recent; track $index) {
                     <tr>
                       <td class="kana-font">
-                        <span class="dot" [class.dot-ok]="a.correct" [class.dot-bad]="!a.correct"></span>
+                        <span
+                          class="dot"
+                          [class.dot-ok]="a.correct"
+                          [class.dot-bad]="!a.correct"
+                        ></span>
                         {{ a.katakana }}
                       </td>
                       <td>{{ a.romaji }}</td>

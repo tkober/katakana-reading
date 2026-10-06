@@ -34,6 +34,7 @@ const STEPS_DARK: RampStep[] = [...STEPS_LIGHT].reverse();
 
 export const prefersDark =
   typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 const STEPS = prefersDark ? STEPS_DARK : STEPS_LIGHT;
@@ -43,10 +44,7 @@ export const RAMP: string[] = STEPS.map((s) => s.bg);
 
 /** Maps a 0…1 magnitude onto the active ramp. */
 export function rampStep(value: number): RampStep {
-  const idx = Math.min(
-    STEPS.length - 1,
-    Math.max(0, Math.floor(value * STEPS.length)),
-  );
+  const idx = Math.min(STEPS.length - 1, Math.max(0, Math.floor(value * STEPS.length)));
   return STEPS[idx];
 }
 

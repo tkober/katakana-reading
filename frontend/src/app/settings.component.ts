@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from './api.service';
@@ -160,7 +160,6 @@ import { TimeBudget } from './models';
       </div>
     </section>
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       .settings {

@@ -8,8 +8,8 @@ und ein Elo-basiertes Level, und wählt die nächsten Wörter adaptiv danach aus
 ## Architektur
 
 ```
-frontend/   Angular 20 (standalone components, signals, Router)
-            + Dockerfile (Node 22 Build → nginx) + nginx.conf + proxy.conf.json
+frontend/   Angular 22, zoneless (standalone components, signals, Router)
+            + Dockerfile (Node 24 Build → nginx) + nginx.conf + proxy.conf.json
 backend/    FastAPI + PostgreSQL (SQLAlchemy async/asyncpg), verwaltet mit uv
             + Dockerfile (uv-Image python3.14, uvicorn) + tests/
 words/      Basis-Vokabular als JSON: basic/ (in git) + additional/ (gitignored,
@@ -213,9 +213,12 @@ docker compose up --build -d
 
 ### Tests & Verifikation
 
-Alle Tests liegen im Backend; **einen Test-Runner fürs Frontend gibt es
-bewusst nicht** (kein `ng test`, keine Karma/Jest-Abhängigkeit — bei einer
-Single-User-App wäre das mehr Gerüst als Nutzen).
+Der Großteil der Tests liegt im Backend. Das Frontend hat seit dem
+Angular-22-Upgrade (Issue #4) einen schlanken `ng test` über
+`@angular/build:unit-test` (Vitest/jsdom, Tooling an `kanji-trainer`
+angeglichen) — bewusst nur für reine Funktionen (`ramp.spec.ts`), keine
+Komponenten-Tests: bei einer Single-User-App bliebe das UI-Verifikationsmuster
+unten der eigentliche Prüfpfad.
 
 - `tests/conftest.py` — eine **session-weite Wegwerf-Postgres** via
   testcontainers (`postgres:17-alpine`); jeder Test startet mit leerem
@@ -295,8 +298,13 @@ Browser-Cache hält sich hartnäckig an alte Bundles — nach einem Rebuild
   was einmal in der DB liegt, wird bei jedem Boot neu gelesen — ein Eintrag,
   der den Tokenizer wirft, würde den Container sonst in eine Crash-Schleife
   schicken.
-- Angular: standalone components, neue Control-Flow-Syntax (`@if`/`@for`),
-  inline templates/styles. Router mit echten Pfaden (`/practice`, `/stats`,
+- Angular 22, **zoneless** (kein `zone.js`, Provider in `app.config.ts`),
+  standalone components, neue Control-Flow-Syntax (`@if`/`@for`), inline
+  templates/styles. Jeder Zustand, der das Template beeinflusst, ist ein
+  Signal — auch das, was aus `setInterval`/`subscribe`/Promise-Callbacks
+  gesetzt wird (z. B. der Countdown-Ring in `practice.component.ts`), weil
+  ohne Zone nur Signal-Writes (und Template-Event-Handler) ein Re-Render
+  auslösen. Router mit echten Pfaden (`/practice`, `/stats`,
   `/dictionaries`, `/settings`) — **deshalb braucht nginx den SPA-Fallback**
   (`try_files … /index.html` in `frontend/nginx.conf`): ohne ihn liefert ein
   Reload auf `/stats` einen 404. Beim Ändern der Routen daran denken;

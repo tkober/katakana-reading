@@ -1,6 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { ApiService } from './api.service';
@@ -254,7 +254,6 @@ const PAGE_SIZE = 50;
       <p class="loading">Loading dictionaries…</p>
     }
   `,
-  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       .dicts {

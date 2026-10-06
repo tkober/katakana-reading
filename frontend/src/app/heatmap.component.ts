@@ -1,4 +1,4 @@
-import { Component, Input, computed, signal } from '@angular/core';
+import { Component, Input, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 
 import { KanaStat } from './models';
 import { RAMP, rampStep } from './ramp';
@@ -95,6 +95,7 @@ interface Cell {
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       .wrap {

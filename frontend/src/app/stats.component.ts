@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 
 import { ApiService } from './api.service';
 import { HeatmapComponent } from './heatmap.component';
@@ -231,6 +231,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       <p class="loading">Loading stats…</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: [
     `
       .stats {

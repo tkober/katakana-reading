@@ -23,6 +23,8 @@ und `/api` ans Backend weiterreicht. Der Fortschritt liegt im Volume
 - **Auswertung pro Kana** — auch bei falscher Antwort siehst du, welche Kana
   du richtig gelesen hast. Hepburn und Kunrei werden akzeptiert
   (`shi`/`si`, `koohii`/`kōhī`/`ko-hi-`, `matchi`/`macchi`, `shanpuu`/`shampuu`).
+  **Alt+H** deckt die Lesung auf, zählt dabei aber immer als falsch — auch
+  wenn du vorher schon die richtige Antwort eingetippt hattest.
 - **Statistik** — Level & Elo-Verlauf, Genauigkeit, Lesetempo (pro Kana und
   pro Wort), Streaks, Gojūon-Heatmap deiner Kana-Konfidenz.
 - **Reset mit Mehrfach-Bestätigung** in den Einstellungen.

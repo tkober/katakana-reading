@@ -33,12 +33,18 @@ export class ApiService {
     );
   }
 
-  answer(wordId: number, answer: string, timeMs: number): Observable<AnswerResult> {
+  answer(
+    wordId: number,
+    answer: string,
+    timeMs: number,
+    gaveUp = false,
+  ): Observable<AnswerResult> {
     return this.http
       .post<AnswerResult>('/api/answer', {
         word_id: wordId,
         answer,
         time_ms: Math.round(timeMs),
+        gave_up: gaveUp,
       })
       .pipe(
         tap((r) =>

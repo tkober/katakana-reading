@@ -25,6 +25,9 @@ class AnswerIn(BaseModel):
     word_id: int
     answer: str = Field(max_length=200)
     time_ms: int = Field(ge=0)
+    # Alt+H ("give up"): the backend grades it as a plain miss regardless of
+    # what was typed — see game.submit_answer.
+    gave_up: bool = False
 
 
 class ResetIn(BaseModel):
@@ -121,7 +124,9 @@ async def answer(
     body: AnswerIn, session: AsyncSession = Depends(get_session)
 ) -> dict[str, Any]:
     try:
-        return await game.submit_answer(session, body.word_id, body.answer, body.time_ms)
+        return await game.submit_answer(
+            session, body.word_id, body.answer, body.time_ms, gave_up=body.gave_up
+        )
     except KeyError:
         raise HTTPException(status_code=404, detail="word not found")
 

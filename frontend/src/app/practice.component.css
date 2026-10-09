@@ -1,0 +1,79 @@
+:host {
+  display: block;
+}
+
+.round {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
+.loading {
+  color: var(--sumi-muted);
+  text-align: center;
+}
+
+/* --- Content of sumi-verdict's [sumiVerdictDetails] slot --------------- */
+
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.token {
+  min-width: 52px;
+  padding: 6px 10px 5px;
+  border-radius: var(--sumi-radius-sm);
+  text-align: center;
+}
+
+/* Colour never carries the verdict alone — each tile also gets a ✓/✕
+   glyph (see .token-mark below). */
+.token--ok {
+  background: var(--sumi-correct-soft);
+  outline: 1px solid var(--sumi-correct);
+}
+
+.token--bad {
+  background: var(--sumi-wrong-soft);
+  outline: 1px solid var(--sumi-wrong);
+}
+
+.token-kana {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.token-romaji {
+  font-size: 0.75rem;
+  color: var(--sumi-text-2);
+}
+
+.token-mark {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.token--ok .token-mark {
+  color: var(--sumi-correct);
+}
+
+.token--bad .token-mark {
+  color: var(--sumi-wrong);
+}
+
+.meaning {
+  margin: 10px 0 0;
+}
+
+.your-answer {
+  margin: 6px 0 0;
+  color: var(--sumi-text-2);
+}

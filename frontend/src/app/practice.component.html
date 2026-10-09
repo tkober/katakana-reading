@@ -24,10 +24,7 @@
             (restart)="startSession()"
           >
             <sumi-hanko sumiSummaryArt [characters]="hankoCharacters()" [label]="hankoLabel()" />
-            <div class="tile">
-              <dt>Ø per word</dt>
-              <dd class="sumi-tabular">{{ sessionAvgMs() / 1000 | number: '1.1-1' }} s</dd>
-            </div>
+            <div sumiSummaryTile label="Ø per word">{{ sessionAvgMs() / 1000 | number: '1.1-1' }} s</div>
           </sumi-session-summary>
         </sumi-session-gate>
       } @else {

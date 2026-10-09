@@ -184,10 +184,12 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   Trefferquote, `levelUp` bei Levelaufstieg während der Session, T8) — bei
   0 beantworteten Wörtern zeigt die Gate stattdessen nur ihren eigenen
   Text+Button, keine leere Summary. „Ø per word" (einzige App-spezifische
-  Kennzahl, die die Summary nicht selbst hat) wird als eigene `dt`/`dd`-Kachel
-  in ihren Default-Slot projiziert — mit eigenen `--sumi-*`-Tokens nachgebaut,
-  weil Angulars View Encapsulation die privaten `.sumi-session-summary__*`-
-  Styles der Bibliothek nicht auf projizierten Inhalt anwendet.
+  Kennzahl, die die Summary nicht selbst hat) ist ein
+  `<div sumiSummaryTile>` im Default-Slot der Summary (sumi-ui#48: dieselbe
+  Komponente wie die eingebauten Kacheln). Beim Weiterschalten bleiben Wort
+  und Urteil stehen, bis das nächste Wort da ist — `word` wird nie auf
+  `null` gesetzt, sonst würde das Eingabefeld kurz ausgehängt und die
+  Handy-Tastatur ginge zu.
   `sumi-session-bar` läuft über `*sumiShellFocusActions` im Shell-Header.
   Die laufende Runde (`sumiFocusMode`, T7 = keine Tusche) zeigt
   `sumi-prompt-card` (Katakana bleibt nach der Antwort stehen) mit

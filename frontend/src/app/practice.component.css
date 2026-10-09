@@ -77,25 +77,3 @@
   margin: 6px 0 0;
   color: var(--sumi-text-2);
 }
-
-/* "Ø per word" tile projected into sumi-session-summary's default content
-   slot, inside its own <dl>. Angular's view encapsulation means
-   session-summary's own `.sumi-session-summary__tile` styling never
-   reaches content projected from here, so this matches it independently —
-   same structure (dt/dd) and the same public `--sumi-*` tokens, not the
-   library's private class names. */
-.tile {
-  text-align: left;
-}
-
-.tile dt {
-  margin: 0;
-  color: var(--sumi-muted);
-  font-size: var(--sumi-text-xs);
-}
-
-.tile dd {
-  margin: var(--sumi-space-1) 0 0;
-  font-size: var(--sumi-text-xl);
-  font-weight: 600;
-}

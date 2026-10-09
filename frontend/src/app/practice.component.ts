@@ -74,6 +74,7 @@ export class PracticeComponent {
   private sessionStartedAt = 0;
   private ticker: ReturnType<typeof setInterval> | undefined;
   private submitting = false;
+  private loading = false;
 
   readonly sessionAccuracy = computed(() =>
     this.sessionCount() ? this.sessionCorrect() / this.sessionCount() : 0,
@@ -201,7 +202,8 @@ export class PracticeComponent {
 
   /** Alt+H: reveal the solution, scored as a plain miss by the backend. */
   onGaveUp(): void {
-    this.submit(this.value(), true);
+    // The backend ignores the text of a given-up answer anyway.
+    this.submit('', true);
   }
 
   /** The Check/Next button next to the field — `sumiHoldFocus` keeps the
@@ -213,7 +215,7 @@ export class PracticeComponent {
 
   private submit(answer: string, gaveUp: boolean): void {
     const word = this.word();
-    if (!word || this.state() !== 'active' || this.submitting) {
+    if (!word || this.state() !== 'active' || this.submitting || this.loading) {
       return;
     }
     this.submitting = true;
@@ -241,19 +243,37 @@ export class PracticeComponent {
   }
 
   private loadNext(): void {
-    this.result.set(null);
-    this.gaveUp.set(false);
-    this.value.set('');
-    this.word.set(null);
-    this.api.nextWord().subscribe((w) => {
-      // A session ended while this request was in flight must stay ended.
-      if (this.state() !== 'active') {
-        return;
-      }
-      this.word.set(w);
-      this.startedAt = performance.now();
-      this.elapsedMs.set(0);
-      this.startTicker();
+    if (this.loading) {
+      return;
+    }
+    this.loading = true;
+    // The current word and its verdict stay on screen until the next word
+    // arrives: nulling `word` here would unmount sumi-answer-field for the
+    // length of the request, and a removed input closes a phone's
+    // on-screen keyboard (#7: the keyboard stays open all session).
+    this.api.nextWord().subscribe({
+      next: (w) => {
+        this.loading = false;
+        // A session ended while this request was in flight must stay ended.
+        if (this.state() !== 'active') {
+          return;
+        }
+        this.result.set(null);
+        this.gaveUp.set(false);
+        this.value.set('');
+        this.word.set(w);
+        this.startedAt = performance.now();
+        this.elapsedMs.set(0);
+        this.startTicker();
+        // Undo the scroll the previous verdict caused — the new prompt
+        // belongs at the top.
+        afterNextRender(() => window.scrollTo({ top: 0, behavior: 'smooth' }), {
+          injector: this.injector,
+        });
+      },
+      error: () => {
+        this.loading = false;
+      },
     });
   }
 

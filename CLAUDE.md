@@ -119,7 +119,11 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   `GET`/`PUT /api/settings` (Zeitbudget: Werte, Defaults, Grenzen und drei
   gerechnete Beispiele — die UI dupliziert die Formel nicht),
   `GET /api/word/next`, `POST /api/answer` (Antwort enthält u. a. `source`,
-  wird bei der Auflösung angezeigt),
+  wird bei der Auflösung angezeigt; `gave_up: bool` für Alt+H — „zeig's mir",
+  nicht „bewerte, was ich getippt habe": wertet gegen `''` statt gegen die
+  Eingabe aus, zählt also immer als falsch mit `kana_correct == 0`,
+  gespeicherte `answer` ist `''`, Elo/Streak laufen wie bei jeder falschen
+  Antwort),
   `GET /api/stats`, `GET /api/dictionaries` (Zusammensetzung je Source:
   Level-Mix, Ø/Min/Max Kana pro Wort, Rating-Spanne, geübt/Erfolgsquote,
   `origin` file|upload + `uploaded_at`),
@@ -171,18 +175,31 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   `tkober/sumi-ui#25` die endgültige Gestaltung festlegt — nichts davon als
   final verstehen.
 - `routes.ts` — Routen + Seitentitel.
-- `practice.component.ts` — Übungsansicht mit explizitem Session-Lebenszyklus
-  (`idle` → `active` → `ended`): Die Session startet **nicht** automatisch,
-  der Timer läuft erst ab dem ersten Wort. „End session" zeigt eine
-  Zusammenfassung (Wörter, Trefferquote, Ø-Zeit, Elo-Delta). Wort-Karte,
-  **Countdown-Ring** (SVG, `stroke-dashoffset` aus `fractionLeft()`, r=19 in
-  einer 44er-Box; Restsekunden in der Mitte, letzte 25 % und Überzeit rot,
-  bei Überzeit zählt er als „+x,x s" hoch), Romaji-Input, Feedback pro
-  Kana-Token (✓/✕), Enter-Flow
-  (prüfen → weiter), Herkunfts-Dictionary als Chip bei der Auflösung. Inhalt
-  in `<sumi-page [inkEnd]="false">` ohne Titel (die Übungsrunde trägt keine
-  Tusche, T7; das Session-Gate wird erst in #7 auf `sumi-session-gate`
-  umgestellt) — intern noch eigene Karten/Buttons, keine Sumi-Formulare.
+- `practice.component.ts`/`.html`/`.css` (#7) — Übungsansicht auf Sumi-UI-
+  Bausteinen, explizites Session-Lebenszyklus (`idle` → `active` → `ended`):
+  Session startet **nicht** automatisch, der Timer läuft erst ab dem ersten
+  Wort, eine während eines laufenden Requests beendete Session bleibt
+  beendet. `sumi-session-gate` (T1, `companion="koi"`) im Leerzustand, im
+  Ende-Zustand wrapt sie `sumi-session-summary` (T2, Hanko 合格/練習 ab 80 %
+  Trefferquote, `levelUp` bei Levelaufstieg während der Session, T8) — bei
+  0 beantworteten Wörtern zeigt die Gate stattdessen nur ihren eigenen
+  Text+Button, keine leere Summary. „Ø per word" (einzige App-spezifische
+  Kennzahl, die die Summary nicht selbst hat) wird als eigene `dt`/`dd`-Kachel
+  in ihren Default-Slot projiziert — mit eigenen `--sumi-*`-Tokens nachgebaut,
+  weil Angulars View Encapsulation die privaten `.sumi-session-summary__*`-
+  Styles der Bibliothek nicht auf projizierten Inhalt anwendet.
+  `sumi-session-bar` läuft über `*sumiShellFocusActions` im Shell-Header.
+  Die laufende Runde (`sumiFocusMode`, T7 = keine Tusche) zeigt
+  `sumi-prompt-card` (Katakana bleibt nach der Antwort stehen) mit
+  `sumi-countdown-ring` im Content-Slot (friert beim Submit ein) und
+  `sumi-answer-field` (`mode="romaji"`, `[iDontKnow]="true"` für Alt+H,
+  nie `readonly`, behält den Fokus — Telefon-Tastatur bleibt über die ganze
+  Session offen). `sumi-verdict` trägt Titel/Message/`expected`
+  (Correct & fast/Correct/Not quite/Gave up), die Kana-für-Kana-Auswertung
+  (✓/✕-Token-Tiles, Bedeutung, Herkunfts-`sumi-badge`, „Your answer" bei
+  Falsch-nicht-aufgegeben) bleibt app-spezifisch im `sumiVerdictDetails`-Slot,
+  standardmäßig offen (`F` persistiert das für den Rest der Session, kein
+  Reset pro Wort). `?` registriert die Seite selbst, aktiv nur mit Verdict.
 - `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
   Source-Dictionary), Recent-Tabelle. In `<sumi-page title="Stats">`
@@ -238,7 +255,7 @@ docker compose up -d postgres
 # Backend (Port 8000) — DB_* aus backend/.env, Vorlage: backend/.env.example
 cd backend && uv run uvicorn app.main:app --reload
 
-# Tests (55): starten selbst ein Postgres per testcontainers → Docker muss
+# Tests (56): starten selbst ein Postgres per testcontainers → Docker muss
 # laufen. TEST_DB_URL=… zeigt stattdessen auf eine vorhandene DB.
 cd backend && uv run pytest
 

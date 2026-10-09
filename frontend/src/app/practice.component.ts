@@ -1,528 +1,79 @@
 import { DecimalPipe } from '@angular/common';
 import {
   Component,
+  DestroyRef,
   ElementRef,
-  OnDestroy,
-  ViewChild,
+  Injector,
+  afterNextRender,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { SumiPage } from 'sumi-ui/layout';
+import { SUMI_KEYS, SumiHotkeys, injectHotkey } from 'sumi-ui/core';
+import { SumiBadge, SumiFocusModeDirective, SumiHanko, SumiPage, SumiShellFocusActionsDirective } from 'sumi-ui/layout';
+import { SumiButtonDirective } from 'sumi-ui/forms';
+import { SUMI_PRACTICE, SumiAnswerField, type SumiVerdict } from 'sumi-ui/practice';
 
 import { ApiService } from './api.service';
 import { AnswerResult, NextWord } from './models';
 
+/** A session is explicit: nothing runs until it is started, and the clock
+ *  only starts once the first word is on screen. */
 type SessionState = 'idle' | 'active' | 'ended';
+
+const TICK_MS = 100;
 
 @Component({
   selector: 'app-practice',
-  imports: [DecimalPipe, FormsModule, SumiPage],
-  template: `
-    <sumi-page [inkEnd]="false">
-    @switch (state()) {
-      @case ('idle') {
-        <section class="gate">
-          <h2>Ready to read?</h2>
-          <p>
-            Words are picked to match your level and to target the kana you struggle with. The clock
-            only starts once the first word is on screen — take your time until then.
-          </p>
-          <button class="primary" (click)="startSession()">Start training session</button>
-        </section>
-      }
-
-      @case ('ended') {
-        <section class="gate">
-          <h2>Session finished</h2>
-          @if (sessionCount() > 0) {
-            <div class="summary">
-              <div class="sum-tile">
-                <span class="sum-label">Words</span>
-                <span class="sum-value">{{ sessionCount() }}</span>
-              </div>
-              <div class="sum-tile">
-                <span class="sum-label">Correct</span>
-                <span class="sum-value">
-                  {{ sessionCorrect() }}
-                  <small>({{ sessionAccuracy() * 100 | number: '1.0-0' }} %)</small>
-                </span>
-              </div>
-              <div class="sum-tile">
-                <span class="sum-label">Ø per word</span>
-                <span class="sum-value"> {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s </span>
-              </div>
-              <div class="sum-tile">
-                <span class="sum-label">Elo</span>
-                <span
-                  class="sum-value"
-                  [class.up]="sessionElo() >= 0"
-                  [class.down]="sessionElo() < 0"
-                >
-                  {{ sessionElo() >= 0 ? '+' : '' }}{{ sessionElo() | number: '1.0-0' }}
-                </span>
-              </div>
-            </div>
-          } @else {
-            <p class="muted">No words answered in this session.</p>
-          }
-          <button class="primary" (click)="startSession()">Start another session</button>
-        </section>
-      }
-
-      @case ('active') {
-        @if (word(); as w) {
-          <section class="practice">
-            <div class="session-bar">
-              <span class="session-stat">
-                Session: <strong>{{ sessionCorrect() }}/{{ sessionCount() }}</strong>
-                @if (sessionCount() > 0) {
-                  <span class="muted"> · Ø {{ sessionAvgMs() / 1000 | number: '1.1-1' }} s </span>
-                }
-              </span>
-              <button class="ghost" (click)="endSession()">End session</button>
-            </div>
-
-            <div class="word-card" [class.answered]="result() !== null">
-              <div class="word-meta">
-                <span>Word level {{ w.level }}</span>
-                <span>{{ w.kana_count }} kana</span>
-              </div>
-              @if (result(); as r) {
-                <div class="tokens">
-                  @for (t of r.tokens; track $index) {
-                    <div class="token" [class.ok]="t.correct" [class.bad]="!t.correct">
-                      <div class="token-kana" lang="ja">{{ t.kana }}</div>
-                      <div class="token-romaji">{{ t.expected }}</div>
-                      <div class="token-mark">{{ t.correct ? '✓' : '✕' }}</div>
-                    </div>
-                  }
-                </div>
-                <div class="reading">
-                  <span class="reading-romaji">{{ r.romaji }}</span>
-                  <span class="reading-meaning">{{ r.meaning }}</span>
-                </div>
-                <div class="reading-source">
-                  <span class="source-chip">{{ r.source }}</span>
-                </div>
-              } @else {
-                <div class="word" lang="ja">{{ w.katakana }}</div>
-              }
-            </div>
-
-            @if (result(); as r) {
-              <div class="verdict" [class.verdict-ok]="r.correct" [class.verdict-bad]="!r.correct">
-                <strong>{{
-                  r.correct ? (r.fast ? 'Correct & fast!' : 'Correct!') : 'Not quite.'
-                }}</strong>
-                <span
-                  >{{ r.kana_correct }}/{{ r.kana_total }} kana ·
-                  {{ elapsedMs() / 1000 | number: '1.1-1' }} s · {{ r.elo.delta >= 0 ? '+' : ''
-                  }}{{ r.elo.delta | number: '1.1-1' }} Elo</span
-                >
-                @if (!r.correct && answered()) {
-                  <span class="your-answer">Your answer: “{{ answered() }}”</span>
-                }
-              </div>
-            }
-
-            <form class="answer-row" (submit)="onSubmit($event)">
-              <input
-                #answerBox
-                class="answer-input"
-                type="text"
-                name="answer"
-                [(ngModel)]="answer"
-                [readonly]="result() !== null"
-                [placeholder]="result() ? 'Press Enter for the next word' : 'Type romaji…'"
-                autocomplete="off"
-                autocapitalize="off"
-                spellcheck="false"
-              />
-              <button class="submit-btn" type="submit">
-                {{ result() ? 'Next' : 'Check' }}
-              </button>
-            </form>
-
-            <div class="hint-row">
-              @if (result() === null) {
-                <div
-                  class="countdown"
-                  [class.low]="!overtime() && fractionLeft() <= 0.25"
-                  [class.overtime]="overtime()"
-                >
-                  <svg class="ring" viewBox="0 0 44 44" aria-hidden="true">
-                    <circle class="ring-track" cx="22" cy="22" r="19" />
-                    <circle
-                      class="ring-value"
-                      cx="22"
-                      cy="22"
-                      r="19"
-                      transform="rotate(-90 22 22)"
-                      [attr.stroke-dasharray]="circumference"
-                      [attr.stroke-dashoffset]="ringOffset()"
-                    />
-                  </svg>
-                  <span class="ring-num">
-                    {{ overtime() ? '+' : '' }}{{ absRemainingMs() / 1000 | number: '1.1-1' }}
-                  </span>
-                </div>
-                <span class="hint">
-                  @if (overtime()) {
-                    over the {{ w.target_time_ms / 1000 | number: '1.0-1' }} s target
-                  } @else {
-                    seconds left of {{ w.target_time_ms / 1000 | number: '1.0-1' }} s
-                  }
-                </span>
-              } @else {
-                <span class="hint">Press Enter for the next word</span>
-              }
-            </div>
-          </section>
-        } @else {
-          <p class="loading">Loading word…</p>
-        }
-      }
-    }
-    </sumi-page>
-  `,
-  styles: [
-    `
-      .gate {
-        background: var(--sumi-surface);
-        border: 1px solid var(--sumi-line);
-        border-radius: 14px;
-        padding: 32px 28px;
-        text-align: center;
-      }
-      .gate h2 {
-        margin: 0 0 10px;
-        font-size: 20px;
-      }
-      .gate p {
-        color: var(--sumi-text-2);
-        font-size: 14px;
-        max-width: 44ch;
-        margin: 0 auto 20px;
-      }
-      .primary {
-        padding: 12px 26px;
-        border-radius: 10px;
-        border: none;
-        background: var(--sumi-accent);
-        color: var(--sumi-on-accent);
-        font-weight: 650;
-        font-size: 15px;
-        cursor: pointer;
-      }
-      .summary {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-        gap: 10px;
-        margin: 0 0 22px;
-      }
-      .sum-tile {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: 12px 10px;
-        border: 1px solid var(--sumi-line);
-        border-radius: 10px;
-      }
-      .sum-label {
-        font-size: 12px;
-        color: var(--sumi-text-2);
-      }
-      .sum-value {
-        font-size: 22px;
-        font-weight: 600;
-      }
-      .sum-value small {
-        font-size: 12px;
-        font-weight: 400;
-        color: var(--sumi-muted);
-      }
-      .sum-value.up {
-        color: var(--sumi-correct);
-      }
-      .sum-value.down {
-        color: var(--sumi-wrong);
-      }
-      .practice {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-      }
-      .session-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 8px 12px;
-        font-size: 13px;
-        color: var(--sumi-text-2);
-      }
-      .ghost {
-        background: transparent;
-        border: 1px solid var(--sumi-line);
-        border-radius: 8px;
-        padding: 5px 12px;
-        font-size: 13px;
-        color: var(--sumi-text-2);
-        cursor: pointer;
-      }
-      .ghost:hover {
-        color: var(--sumi-wrong);
-        border-color: var(--sumi-wrong);
-      }
-      .word-card {
-        background: var(--sumi-accent);
-        color: var(--sumi-on-accent);
-        border-radius: 14px;
-        padding: 28px 24px 36px;
-        text-align: center;
-      }
-      .word-meta {
-        display: flex;
-        justify-content: space-between;
-        font-size: 12px;
-        opacity: 0.75;
-        margin-bottom: 18px;
-      }
-      .word {
-        font-size: clamp(34px, 9vw, 64px);
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        line-height: 1.2;
-        overflow-wrap: anywhere;
-      }
-      .tokens {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 8px;
-      }
-      .token {
-        min-width: 52px;
-        padding: 8px 10px 6px;
-        border-radius: 10px;
-        /* Tinted from the word-card's own text colour (not a fixed white),
-           so the wash stays subtle instead of flattening out on a light
-           accent like yamabuki (dark on-accent text). */
-        background: color-mix(in oklab, var(--sumi-on-accent) 14%, transparent);
-      }
-      .token.ok {
-        outline: 2px solid var(--sumi-correct);
-      }
-      .token.bad {
-        outline: 2px solid var(--sumi-wrong);
-        background: color-mix(in oklab, var(--sumi-wrong) 30%, transparent);
-      }
-      .token-kana {
-        font-size: 30px;
-        font-weight: 600;
-        line-height: 1.25;
-      }
-      .token-romaji {
-        font-size: 13px;
-        opacity: 0.9;
-      }
-      .token-mark {
-        font-size: 12px;
-        font-weight: 700;
-      }
-      .token.ok .token-mark,
-      .token.bad .token-mark {
-        /* The outline already carries the correct/wrong colour; the mark
-           itself just needs to read on the accent fill, whichever text
-           colour that resolves to. */
-        color: var(--sumi-on-accent);
-      }
-      .reading {
-        margin-top: 16px;
-        display: flex;
-        justify-content: center;
-        align-items: baseline;
-        gap: 14px;
-        flex-wrap: wrap;
-      }
-      .reading-romaji {
-        font-size: 22px;
-        font-weight: 650;
-      }
-      .reading-meaning {
-        font-size: 15px;
-        opacity: 0.85;
-      }
-      .reading-source {
-        margin-top: 10px;
-      }
-      .source-chip {
-        display: inline-block;
-        border: 1px solid color-mix(in oklab, var(--sumi-on-accent) 35%, transparent);
-        border-radius: 999px;
-        padding: 2px 12px;
-        font-size: 12px;
-        opacity: 0.9;
-      }
-      .verdict {
-        display: flex;
-        gap: 12px;
-        align-items: baseline;
-        flex-wrap: wrap;
-        padding: 10px 14px;
-        border-radius: 10px;
-        font-size: 14px;
-      }
-      .verdict-ok {
-        background: var(--sumi-correct-soft);
-        color: var(--sumi-correct);
-      }
-      .verdict-bad {
-        background: var(--sumi-wrong-soft);
-        color: var(--sumi-wrong);
-      }
-      .your-answer {
-        color: var(--sumi-text-2);
-      }
-      .answer-row {
-        display: flex;
-        gap: 10px;
-      }
-      .answer-input {
-        flex: 1;
-        /* Without this the input keeps its intrinsic size=20 width (~242px)
-           and pushes the button off screen on narrow phones. */
-        min-width: 0;
-        font-size: 20px;
-        padding: 12px 16px;
-        border-radius: 10px;
-        border: 1px solid var(--sumi-line);
-        background: var(--sumi-surface);
-        color: var(--sumi-text);
-        text-align: center;
-        letter-spacing: 0.04em;
-      }
-      .answer-input:focus {
-        outline: 2px solid var(--sumi-accent-ink);
-        border-color: transparent;
-      }
-      .submit-btn {
-        flex: none;
-        white-space: nowrap;
-        padding: 12px 22px;
-        border-radius: 10px;
-        border: none;
-        background: var(--sumi-accent);
-        color: var(--sumi-on-accent);
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .hint-row {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        justify-content: center;
-        min-height: 48px;
-      }
-      .countdown {
-        position: relative;
-        width: 44px;
-        height: 44px;
-        flex: none;
-      }
-      .ring {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-      .ring-track,
-      .ring-value {
-        fill: none;
-        stroke-width: 4;
-      }
-      .ring-track {
-        stroke: var(--sumi-line);
-      }
-      .ring-value {
-        stroke: var(--sumi-accent-ink);
-        stroke-linecap: round;
-        /* Matches the 100ms ticker, so the ring glides instead of stepping. */
-        transition:
-          stroke-dashoffset 0.1s linear,
-          stroke 0.2s ease;
-      }
-      .countdown.low .ring-value {
-        stroke: var(--sumi-wrong);
-      }
-      .countdown.overtime .ring-value {
-        stroke: transparent;
-      }
-      .ring-num {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 13px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--sumi-text-2);
-      }
-      .countdown.low .ring-num,
-      .countdown.overtime .ring-num {
-        color: var(--sumi-wrong);
-      }
-      .hint {
-        color: var(--sumi-muted);
-        font-size: 13px;
-      }
-      .muted {
-        color: var(--sumi-muted);
-      }
-      .loading {
-        color: var(--sumi-muted);
-        text-align: center;
-      }
-    `,
+  imports: [
+    DecimalPipe,
+    SumiBadge,
+    SumiButtonDirective,
+    SumiFocusModeDirective,
+    SumiHanko,
+    SumiPage,
+    SumiShellFocusActionsDirective,
+    ...SUMI_PRACTICE,
   ],
+  templateUrl: './practice.component.html',
+  styleUrl: './practice.component.css',
 })
-export class PracticeComponent implements OnDestroy {
+export class PracticeComponent {
   private api = inject(ApiService);
-
-  @ViewChild('answerBox') answerBox?: ElementRef<HTMLInputElement>;
+  private hotkeys = inject(SumiHotkeys);
+  private injector = inject(Injector);
+  private field = viewChild<SumiAnswerField>('field');
+  private answerRow = viewChild<ElementRef<HTMLElement>>('answerRow');
 
   readonly state = signal<SessionState>('idle');
   readonly word = signal<NextWord | null>(null);
   readonly result = signal<AnswerResult | null>(null);
-  readonly answered = signal<string>('');
+  /** Whether the current `result` came from Alt+H rather than a typed
+   *  submission — drives the "Gave up" title and hides "Your answer". */
+  readonly gaveUp = signal(false);
+  readonly value = signal('');
+  /** Open by default: the kana-by-kana breakdown is the core learning
+   *  feedback on a miss. `F` (registered by `sumi-verdict` itself) toggles
+   *  it, and that choice persists for the rest of the session rather than
+   *  resetting on every word. */
+  readonly detailsOpen = signal(true);
+
   readonly elapsedMs = signal(0);
   readonly sessionCount = signal(0);
   readonly sessionCorrect = signal(0);
   readonly sessionElo = signal(0);
   readonly sessionTimeMs = signal(0);
+  readonly sessionDurationMs = signal(0);
 
-  /** Countdown ring: r=19 in a 44×44 viewBox. */
-  readonly circumference = 2 * Math.PI * 19;
-
-  readonly fractionLeft = computed(() => {
-    const w = this.word();
-    if (!w || !w.target_time_ms) {
-      return 1;
-    }
-    const left = (w.target_time_ms - this.elapsedMs()) / w.target_time_ms;
-    return Math.max(0, Math.min(1, left));
-  });
-  readonly overtime = computed(() => {
-    const w = this.word();
-    return !!w && this.elapsedMs() > w.target_time_ms;
-  });
-  readonly absRemainingMs = computed(() => {
-    const w = this.word();
-    return w ? Math.abs(w.target_time_ms - this.elapsedMs()) : 0;
-  });
-  readonly ringOffset = computed(() => this.circumference * (1 - this.fractionLeft()));
+  /** `null` means "unknown" (the shared profile was not loaded yet when the
+   *  session started) — kept distinct from a real level so `levelUp` never
+   *  guesses a rise it cannot actually see. */
+  private startLevel: number | null = null;
+  private startedAt = 0;
+  private sessionStartedAt = 0;
+  private ticker: ReturnType<typeof setInterval> | undefined;
+  private submitting = false;
 
   readonly sessionAccuracy = computed(() =>
     this.sessionCount() ? this.sessionCorrect() / this.sessionCount() : 0,
@@ -530,14 +81,88 @@ export class PracticeComponent implements OnDestroy {
   readonly sessionAvgMs = computed(() =>
     this.sessionCount() ? this.sessionTimeMs() / this.sessionCount() : 0,
   );
+  /** `sumi-session-summary` prints `delta` raw — round the accumulated Elo
+   *  change to an integer before handing it over. */
+  readonly roundedSessionElo = computed(() => Math.round(this.sessionElo()));
 
-  answer = '';
-  private startedAt = 0;
-  private ticker: ReturnType<typeof setInterval> | null = null;
-  private submitting = false;
+  /** 合格 ("passed") at 80 % or above, 練習 ("practice") otherwise — see
+   *  docs/concept.md#tuschemotive and sumi-ui#38's `sumi-hanko` example. */
+  readonly hankoCharacters = computed(() => (this.sessionAccuracy() >= 0.8 ? '合格' : '練習'));
+  readonly hankoLabel = computed(() => (this.sessionAccuracy() >= 0.8 ? 'Passed' : 'Practice'));
 
-  ngOnDestroy(): void {
-    this.stopTicker();
+  /** Set once the shared profile's level (updated on every `/api/answer`,
+   *  see `ApiService.answer()`) is higher than it was when the session
+   *  started. `undefined` (not a falsy level) so `sumi-session-summary`'s
+   *  `levelUp` input, which only renders its second hanko when set, stays
+   *  unset for a session without a level-up. */
+  readonly levelUp = computed<string | undefined>(() => {
+    const start = this.startLevel;
+    const level = this.api.profile()?.level;
+    if (start === null || level === undefined || level <= start) {
+      return undefined;
+    }
+    return `Level ${level}`;
+  });
+
+  /** Drives `sumi-answer-field`'s `[verdict]` — just enough to freeze the
+   *  field and pick correct/wrong styling. The richer feedback (title,
+   *  message, breakdown) lives on `sumi-verdict` below, built straight from
+   *  `result()` in the template. */
+  readonly fieldVerdict = computed<SumiVerdict | null>(() => {
+    const r = this.result();
+    return r ? { kind: r.correct ? 'correct' : 'wrong' } : null;
+  });
+
+  /** Mirrors the field's own Enter-label switching (see
+   *  `SumiAnswerField.submit()`) — this app never reaches held/retry, the
+   *  backend is the sole judge of an answer. */
+  readonly checkButtonLabel = computed(() =>
+    this.result() !== null ? 'Next' : 'Check',
+  );
+
+  readonly verdictTitle = computed<string | undefined>(() => {
+    const r = this.result();
+    if (!r) {
+      return undefined;
+    }
+    if (this.gaveUp()) {
+      return 'Gave up';
+    }
+    if (r.correct) {
+      return r.fast ? 'Correct & fast' : 'Correct';
+    }
+    return 'Not quite';
+  });
+
+  /** "{kana_correct}/{kana_total} kana · {s.s} s · {±d.d} Elo" — the time is
+   *  the frozen `elapsedMs` (the ring stops ticking at submit time), not a
+   *  live value. */
+  readonly verdictMessage = computed<string | undefined>(() => {
+    const r = this.result();
+    if (!r) {
+      return undefined;
+    }
+    const seconds = (this.elapsedMs() / 1000).toFixed(1);
+    const delta = r.elo.delta;
+    const sign = delta >= 0 ? '+' : '';
+    return `${r.kana_correct}/${r.kana_total} kana · ${seconds} s · ${sign}${delta.toFixed(1)} Elo`;
+  });
+
+  constructor() {
+    // `?` only becomes a hotkey once a verdict is on screen — bare keys
+    // otherwise belong to the field. `F` is registered by `sumi-verdict`
+    // itself as soon as its details slot has content, which it always does
+    // here.
+    injectHotkey({
+      keys: SUMI_KEYS.help,
+      label: 'Toggle this menu (after answering)',
+      scope: 'feedback',
+      allowInEditable: true,
+      enabled: () => this.result() !== null,
+      handler: () => this.hotkeys.toggleHelp(),
+    });
+
+    inject(DestroyRef).onDestroy(() => this.stopTicker());
   }
 
   startSession(): void {
@@ -545,36 +170,61 @@ export class PracticeComponent implements OnDestroy {
     this.sessionCorrect.set(0);
     this.sessionElo.set(0);
     this.sessionTimeMs.set(0);
+    this.detailsOpen.set(true);
+    this.startLevel = this.api.profile()?.level ?? null;
+    this.sessionStartedAt = Date.now();
     this.state.set('active');
     this.loadNext();
   }
 
   endSession(): void {
     this.stopTicker();
+    this.sessionDurationMs.set(Date.now() - this.sessionStartedAt);
     this.word.set(null);
     this.result.set(null);
-    this.answer = '';
+    this.value.set('');
     this.state.set('ended');
   }
 
-  onSubmit(event: Event): void {
-    event.preventDefault();
-    if (this.result()) {
-      this.loadNext();
-      return;
-    }
+  /** `Enter` on a settled verdict, routed here from the field's `(next)`
+   *  output and from the Check/Next button via `field.submit()`. */
+  onNext(): void {
+    this.loadNext();
+  }
+
+  /** `Enter` on a finished, typed answer. The field itself already ignores
+   *  an empty/whitespace answer (ignores the trim and never emits), so no
+   *  extra guard is needed here. */
+  onSubmitted(answer: string): void {
+    this.submit(answer, false);
+  }
+
+  /** Alt+H: reveal the solution, scored as a plain miss by the backend. */
+  onGaveUp(): void {
+    this.submit(this.value(), true);
+  }
+
+  /** The Check/Next button next to the field — `sumiHoldFocus` keeps the
+   *  caret (and on a phone, the keyboard) in the field; this just does
+   *  whatever `Enter` would do right now. */
+  onCheckClick(): void {
+    this.field()?.submit();
+  }
+
+  private submit(answer: string, gaveUp: boolean): void {
     const word = this.word();
-    if (!word || this.submitting || !this.answer.trim()) {
+    if (!word || this.state() !== 'active' || this.submitting) {
       return;
     }
     this.submitting = true;
     const timeMs = performance.now() - this.startedAt;
     this.stopTicker();
     this.elapsedMs.set(timeMs);
-    this.api.answer(word.word_id, this.answer, timeMs).subscribe({
+    this.gaveUp.set(gaveUp);
+
+    this.api.answer(word.word_id, answer, timeMs, gaveUp).subscribe({
       next: (r) => {
         this.submitting = false;
-        this.answered.set(this.answer.trim());
         this.result.set(r);
         this.sessionCount.update((n) => n + 1);
         this.sessionTimeMs.update((t) => t + timeMs);
@@ -582,19 +232,21 @@ export class PracticeComponent implements OnDestroy {
         if (r.correct) {
           this.sessionCorrect.update((n) => n + 1);
         }
-        this.focusInput();
+        this.revealVerdict();
       },
-      error: () => (this.submitting = false),
+      error: () => {
+        this.submitting = false;
+      },
     });
   }
 
   private loadNext(): void {
     this.result.set(null);
-    this.answer = '';
-    this.answered.set('');
+    this.gaveUp.set(false);
+    this.value.set('');
     this.word.set(null);
     this.api.nextWord().subscribe((w) => {
-      // A session ended while the request was in flight must stay ended.
+      // A session ended while this request was in flight must stay ended.
       if (this.state() !== 'active') {
         return;
       }
@@ -602,23 +254,38 @@ export class PracticeComponent implements OnDestroy {
       this.startedAt = performance.now();
       this.elapsedMs.set(0);
       this.startTicker();
-      this.focusInput();
     });
+  }
+
+  /** Bring the correction into view, below the sticky header — see the
+   *  pilot's identically-named method for the full reasoning. With the
+   *  on-screen keyboard up, the prompt, the input *and* the verdict do not
+   *  fit on screen together (360×780 reference), so the input row is
+   *  scrolled to just under the header once a verdict lands. */
+  private revealVerdict(): void {
+    afterNextRender(
+      () => {
+        const row = this.answerRow()?.nativeElement;
+        if (!row) {
+          return;
+        }
+        const header = document.querySelector('.sumi-app-shell__header');
+        row.style.scrollMarginTop = `${(header?.getBoundingClientRect().height ?? 0) + 8}px`;
+        row.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      },
+      { injector: this.injector },
+    );
   }
 
   private startTicker(): void {
     this.stopTicker();
-    this.ticker = setInterval(() => this.elapsedMs.set(performance.now() - this.startedAt), 100);
+    this.ticker = setInterval(() => this.elapsedMs.set(performance.now() - this.startedAt), TICK_MS);
   }
 
   private stopTicker(): void {
-    if (this.ticker !== null) {
+    if (this.ticker !== undefined) {
       clearInterval(this.ticker);
-      this.ticker = null;
+      this.ticker = undefined;
     }
-  }
-
-  private focusInput(): void {
-    setTimeout(() => this.answerBox?.nativeElement.focus(), 0);
   }
 }

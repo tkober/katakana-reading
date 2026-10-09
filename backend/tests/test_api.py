@@ -91,6 +91,30 @@ def test_answer_reports_source_dictionary(client):
     assert body["correct"] is True
 
 
+def test_answer_gave_up_counts_as_wrong(client):
+    """Alt+H ("give up") grades as a total miss, even when the typed text
+    happens to be the correct reading: the backend never looks at it."""
+    word_id = _id_of("バス")
+    before = client.get("/api/profile").json()
+
+    body = client.post(
+        "/api/answer",
+        json={"word_id": word_id, "answer": "basu", "time_ms": 900, "gave_up": True},
+    ).json()
+    assert body["correct"] is False
+    assert body["kana_correct"] == 0
+    assert body["elo"]["delta"] < 0
+    assert body["streak"] == 0
+
+    after = client.get("/api/profile").json()
+    assert after["elo"] < before["elo"]
+    assert after["streak"] == 0
+
+    recent = client.get("/api/stats").json()["recent"][0]
+    assert recent["answer"] == ""
+    assert recent["correct"] is False
+
+
 def test_time_budget_is_configurable(client):
     body = client.get("/api/settings").json()
     assert body["time_base_ms"] == db.DEFAULT_TIME_BASE_MS

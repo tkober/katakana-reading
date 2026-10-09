@@ -154,14 +154,22 @@ async def pick_next_word(session: AsyncSession) -> Word:
 
 
 async def submit_answer(session: AsyncSession, word_id: int, answer: str,
-                        time_ms: int) -> dict[str, Any]:
+                        time_ms: int, gave_up: bool = False) -> dict[str, Any]:
     word = await session.get(Word, word_id)
     if word is None:
         raise KeyError(f"word {word_id} not found")
 
     time_ms = max(0, min(int(time_ms), 300_000))
     tokens = tokenize(word.katakana)
-    ev = evaluate(tokens, answer)
+    # Alt+H means "show me", not "grade what I typed" — score against an
+    # empty answer regardless of what was actually typed (which might even
+    # be the correct reading), so every token counts as wrong.
+    # `evaluate(tokens, "")` already yields that (no input to match, so no
+    # token can land on an exact/variant hit); `correct` is forced below too,
+    # defensively, for the edge case of a word with zero tokens.
+    ev = evaluate(tokens, "" if gave_up else answer)
+    if gave_up:
+        ev.correct = False
 
     user = await get_user(session)
     target = user_target_time_ms(user, len(tokens))

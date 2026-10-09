@@ -1,0 +1,114 @@
+<sumi-page width="narrow" [inkEnd]="false">
+  @switch (state()) {
+    @case ('idle') {
+      <sumi-session-gate
+        title="Ready to read?"
+        text="Words are picked to match your level and to target the kana you struggle with. The clock only starts once the first word is on screen — take your time until then."
+        actionLabel="Start session"
+        companion="koi"
+        (start)="startSession()"
+      />
+    }
+
+    @case ('ended') {
+      @if (sessionCount() > 0) {
+        <!-- No title: sumi-session-summary supplies its own heading. -->
+        <sumi-session-gate [showAction]="false" companion="koi" (start)="startSession()">
+          <sumi-session-summary
+            [answered]="sessionCount()"
+            [correct]="sessionCorrect()"
+            [durationMs]="sessionDurationMs()"
+            [delta]="roundedSessionElo()"
+            deltaLabel="Elo"
+            [levelUp]="levelUp()"
+            (restart)="startSession()"
+          >
+            <sumi-hanko sumiSummaryArt [characters]="hankoCharacters()" [label]="hankoLabel()" />
+            <div class="tile">
+              <dt>Ø per word</dt>
+              <dd class="sumi-tabular">{{ sessionAvgMs() / 1000 | number: '1.1-1' }} s</dd>
+            </div>
+          </sumi-session-summary>
+        </sumi-session-gate>
+      } @else {
+        <sumi-session-gate
+          title="Session finished"
+          text="No words answered in this session."
+          actionLabel="Start another session"
+          companion="koi"
+          (start)="startSession()"
+        />
+      }
+    }
+
+    @case ('active') {
+      @if (word(); as w) {
+        <!-- Lives in the shell's focus-mode header, not here — see
+             *sumiShellFocusActions's doc comment. -->
+        <sumi-session-bar
+          *sumiShellFocusActions
+          [answered]="sessionCount()"
+          [correct]="sessionCorrect()"
+          (end)="endSession()"
+        />
+
+        <div class="round" sumiFocusMode>
+          <sumi-prompt-card [text]="w.katakana" [meta]="['Level ' + w.level, w.kana_count + ' kana']">
+            <sumi-countdown-ring [elapsedMs]="elapsedMs()" [targetMs]="w.target_time_ms" />
+          </sumi-prompt-card>
+
+          <div #answerRow>
+            <sumi-answer-field
+              #field
+              mode="romaji"
+              [verdict]="fieldVerdict()"
+              [iDontKnow]="true"
+              [(value)]="value"
+              label="Reading"
+              placeholder="Type romaji…"
+              (submitted)="onSubmitted($event)"
+              (next)="onNext()"
+              (gaveUp)="onGaveUp()"
+            />
+          </div>
+
+          <div class="actions">
+            <button type="button" sumiButton variant="primary" sumiHoldFocus (click)="onCheckClick()">
+              {{ checkButtonLabel() }}
+            </button>
+          </div>
+
+          @if (result(); as r) {
+            <sumi-verdict
+              class="verdict"
+              [kind]="r.correct ? 'correct' : 'wrong'"
+              [title]="verdictTitle()"
+              [message]="verdictMessage()"
+              [expected]="r.correct ? undefined : r.romaji"
+              [(detailsOpen)]="detailsOpen"
+            >
+              <div sumiVerdictDetails>
+                <div class="tokens">
+                  @for (t of r.tokens; track $index) {
+                    <div class="token" [class.token--ok]="t.correct" [class.token--bad]="!t.correct">
+                      <div class="token-kana" lang="ja">{{ t.kana }}</div>
+                      <div class="token-romaji">{{ t.expected }}</div>
+                      <div class="token-mark">{{ t.correct ? '✓' : '✕' }}</div>
+                    </div>
+                  }
+                </div>
+                <p class="meaning">{{ r.meaning }}</p>
+                <sumi-badge>{{ r.source }}</sumi-badge>
+                @if (!r.correct && !gaveUp()) {
+                  <p class="your-answer">Your answer: "{{ value() }}"</p>
+                }
+              </div>
+            </sumi-verdict>
+          }
+        </div>
+      } @else {
+        <p class="loading">Loading word…</p>
+      }
+    }
+  }
+</sumi-page>

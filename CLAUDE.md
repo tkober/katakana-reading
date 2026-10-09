@@ -202,7 +202,7 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   Falsch-nicht-aufgegeben) bleibt app-spezifisch im `sumiVerdictDetails`-Slot,
   standardmäßig offen (`F` persistiert das für den Rest der Session, kein
   Reset pro Wort). `?` registriert die Seite selbst, aktiv nur mit Verdict.
-- `stats.component.ts`/`.html`/`.css` (#8) — KPI-Kacheln (`sumi-stat-grid` +
+- `stats.component.ts`/`.html`/`.css` (#8) + `stats-math.ts` (reine Matrix-Bauer, #9) — KPI-Kacheln (`sumi-stat-grid` +
   `sumi-stat-tile`, Level/Elo/Accuracy/Reading speed/Streak, die
   Zusatzzahlen als `hint`), Elo-Verlauf (`sumi-sparkline`, nur ab 2 Punkten,
   `[table]="true"`), schwächste Kana (`sumi-data-table`, nur wenn nicht
@@ -327,20 +327,16 @@ docker compose up --build -d
 
 ### Tests & Verifikation
 
-Der Großteil der Tests liegt im Backend. Das Frontend hatte seit dem
+Der Großteil der Tests liegt im Backend. Das Frontend hat seit dem
 Angular-22-Upgrade (Issue #4) einen schlanken `ng test` über
 `@angular/build:unit-test` (Vitest/jsdom, Tooling an `kanji-trainer`
-angeglichen) — bewusst nur für reine Funktionen (`ramp.spec.ts`), keine
-Komponenten-Tests: bei einer Single-User-App bliebe das UI-Verifikationsmuster
-unten der eigentliche Prüfpfad. **Seit #9 gibt es keine einzige `*.spec.ts`
-mehr** (`ramp.ts`/`ramp.spec.ts` waren die letzte reine Funktion, die
-Komponente, die sie brauchte, ist auf Basis-Komponenten umgestellt) —
-`npm test`/`ng test` bricht deshalb mit "No tests found matching the
-following patterns" ab, statt grün mit null Tests durchzulaufen. Das ist
-ein offener Punkt: entweder das `test`-Target aus `package.json`/CI
-entfernen, bis wieder eine reine Funktion zu testen ist, oder bewusst einen
-ersten echten Komponententest anlegen — keine Dummy-Datei nur um die
-Pipeline grün zu bekommen.
+angeglichen) — bewusst nur für reine Funktionen, keine Komponenten-Tests:
+bei einer Single-User-App bliebe das UI-Verifikationsmuster unten der
+eigentliche Prüfpfad. Seit #9 ist das `stats-math.spec.ts` (Aufbau der drei
+Kana-Matrizen: Lücken nur, wo es kein Kana gibt, Zelle → Kana, Reihenfolge
+der erweiterten Kana); `ramp.spec.ts` ist mit `ramp.ts` weggefallen.
+Achtung: ohne eine einzige `*.spec.ts` bricht `ng test` mit "No tests
+found" ab, statt grün mit null Tests durchzulaufen.
 
 - `tests/conftest.py` — eine **session-weite Wegwerf-Postgres** via
   testcontainers (`postgres:17-alpine`); jeder Test startet mit leerem

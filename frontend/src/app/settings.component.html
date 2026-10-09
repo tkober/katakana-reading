@@ -100,7 +100,9 @@
           @case (1) {
             <p class="warn">Are you sure? This action <strong>cannot</strong> be undone.</p>
             <div class="actions">
-              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">Cancel</button>
+              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">
+                Cancel
+              </button>
               <button type="button" sumiButton variant="danger" (click)="step.set(2)">
                 Yes, I'm sure
               </button>
@@ -120,7 +122,9 @@
                 placeholder="RESET"
                 autocomplete="off"
               />
-              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">Cancel</button>
+              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">
+                Cancel
+              </button>
               <button
                 type="button"
                 sumiButton
@@ -143,11 +147,11 @@
       <div sumiCardHeader>
         <h2>About this app</h2>
       </div>
-      <p>
+      <p class="about">
         Adaptive katakana reading practice: word selection follows your Elo, regularly probes your
         limit and favors words containing kana you still struggle with. Hepburn and Kunrei romaji
-        are both accepted (e.g. <code>shi</code>/<code>si</code>), long vowels as doubled vowels
-        or <code>-</code>.
+        are both accepted (e.g. <code>shi</code>/<code>si</code>), long vowels as doubled vowels or
+        <code>-</code>.
       </p>
     </sumi-card>
   } @else if (failed()) {

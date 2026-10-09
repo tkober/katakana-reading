@@ -129,6 +129,12 @@ sumi-card.danger {
   letter-spacing: 0.1em;
 }
 
+.about {
+  margin: 0;
+  color: var(--sumi-text-2);
+  font-size: 0.875rem;
+}
+
 code {
   background: var(--sumi-bg);
   border: 1px solid var(--sumi-line);

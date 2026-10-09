@@ -1,15 +1,18 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { SumiTheme } from 'sumi-ui/core';
+import { SumiPage } from 'sumi-ui/layout';
 
 import { ApiService } from './api.service';
 import { HeatmapComponent } from './heatmap.component';
 import { KanaStat, Stats } from './models';
-import { RAMP, RampStep, rampStep } from './ramp';
+import { RampStep, rampStep, rampSteps } from './ramp';
 
 @Component({
   selector: 'app-stats',
-  imports: [DecimalPipe, DatePipe, HeatmapComponent],
+  imports: [DecimalPipe, DatePipe, HeatmapComponent, SumiPage],
   template: `
+    <sumi-page title="Stats">
     @if (stats(); as s) {
       <section class="stats">
         <div class="tiles">
@@ -42,7 +45,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
                   [attr.cy]="pts.endY"
                   r="4"
                   fill="var(--series-1)"
-                  stroke="var(--surface)"
+                  stroke="var(--sumi-surface)"
                   stroke-width="2"
                 />
               </svg>
@@ -79,9 +82,9 @@ import { RAMP, RampStep, rampStep } from './ramp';
         @if (weakest().length > 0) {
           <div class="panel">
             <h2>Your weakest kana</h2>
-            <div class="weak-list kana-font">
+            <div class="weak-list">
               @for (k of weakest(); track k.kana) {
-                <span class="weak-chip">
+                <span class="weak-chip" lang="ja">
                   {{ k.kana }}
                   <small>{{ k.ewma * 100 | number: '1.0-0' }} %</small>
                 </span>
@@ -175,7 +178,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
           </div>
           <div class="legend">
             <span>0 %</span>
-            @for (c of ramp; track $index) {
+            @for (c of ramp(); track $index) {
               <span class="swatch" [style.background]="c"></span>
             }
             <span>100 %</span>
@@ -211,13 +214,13 @@ import { RAMP, RampStep, rampStep } from './ramp';
                 <tbody>
                   @for (a of s.recent; track $index) {
                     <tr>
-                      <td class="kana-font">
+                      <td>
                         <span
                           class="dot"
                           [class.dot-ok]="a.correct"
                           [class.dot-bad]="!a.correct"
                         ></span>
-                        {{ a.katakana }}
+                        <span lang="ja">{{ a.katakana }}</span>
                       </td>
                       <td>{{ a.romaji }}</td>
                       <td [class.bad-text]="!a.correct">{{ a.answer || '–' }}</td>
@@ -238,6 +241,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
     } @else {
       <p class="loading">Loading stats…</p>
     }
+    </sumi-page>
   `,
   styles: [
     `
@@ -252,14 +256,14 @@ import { RAMP, RampStep, rampStep } from './ramp';
         gap: 12px;
       }
       .tile {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 12px;
         padding: 14px 16px;
       }
       .tile-label {
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .tile-value {
         font-size: 30px;
@@ -268,7 +272,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       }
       .tile-sub {
         font-size: 12px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .meter {
         height: 6px;
@@ -288,8 +292,8 @@ import { RAMP, RampStep, rampStep } from './ramp';
         margin: 4px 0 2px;
       }
       .panel {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 12px;
         padding: 18px 20px;
       }
@@ -299,7 +303,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       }
       .panel-note {
         font-size: 13px;
-        color: var(--muted);
+        color: var(--sumi-muted);
         margin: 12px 0 0;
       }
       .coverage-grid {
@@ -310,7 +314,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       .coverage-grid h3 {
         font-size: 13px;
         font-weight: 600;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         margin: 0 0 8px;
       }
       .cov-row {
@@ -340,7 +344,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
         transform-origin: 18px 18px;
       }
       .ring-text {
-        fill: var(--ink);
+        fill: var(--sumi-text);
         font-size: 9px;
         font-weight: 600;
         text-anchor: middle;
@@ -352,12 +356,12 @@ import { RAMP, RampStep, rampStep } from './ramp';
         line-height: 1.35;
       }
       .cov-label {
-        color: var(--ink);
+        color: var(--sumi-text);
         font-weight: 600;
         white-space: nowrap;
       }
       .cov-nums {
-        color: var(--muted);
+        color: var(--sumi-muted);
         font-size: 12px;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
@@ -376,7 +380,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       }
       .cov-rate.empty {
         background: transparent;
-        color: var(--muted);
+        color: var(--sumi-muted);
         font-weight: 400;
       }
       .legend {
@@ -385,7 +389,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
         gap: 4px;
         margin-top: 16px;
         font-size: 12px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .legend .swatch {
         width: 18px;
@@ -413,7 +417,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
         display: inline-flex;
         align-items: baseline;
         gap: 8px;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--sumi-line);
         border-radius: 10px;
         padding: 6px 12px;
         font-size: 20px;
@@ -421,7 +425,7 @@ import { RAMP, RampStep, rampStep } from './ramp';
       }
       .weak-chip small {
         font-size: 12px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         font-weight: 400;
       }
       .table-wrap {
@@ -435,14 +439,14 @@ import { RAMP, RampStep, rampStep } from './ramp';
       th {
         text-align: left;
         font-weight: 600;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         font-size: 12px;
         padding: 6px 10px;
-        border-bottom: 1px solid var(--grid);
+        border-bottom: 1px solid var(--sumi-line);
       }
       td {
         padding: 7px 10px;
-        border-bottom: 1px solid var(--grid);
+        border-bottom: 1px solid var(--sumi-line);
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
@@ -454,22 +458,22 @@ import { RAMP, RampStep, rampStep } from './ramp';
         margin-right: 6px;
       }
       .dot-ok {
-        background: var(--good);
+        background: var(--sumi-correct);
       }
       .dot-bad {
-        background: var(--critical);
+        background: var(--sumi-wrong);
       }
       .good-text {
-        color: var(--good-text);
+        color: var(--sumi-correct);
       }
       .bad-text {
-        color: var(--critical);
+        color: var(--sumi-wrong);
       }
       .muted {
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .loading {
-        color: var(--muted);
+        color: var(--sumi-muted);
         text-align: center;
       }
     `,
@@ -477,9 +481,10 @@ import { RAMP, RampStep, rampStep } from './ramp';
 })
 export class StatsComponent implements OnInit {
   private api = inject(ApiService);
+  private readonly theme = inject(SumiTheme);
 
   readonly stats = signal<Stats | null>(null);
-  readonly ramp = RAMP;
+  readonly ramp = computed(() => rampSteps(this.theme.isDark()).map((s) => s.bg));
 
   readonly weakest = computed<KanaStat[]>(() => {
     const s = this.stats();
@@ -523,7 +528,7 @@ export class StatsComponent implements OnInit {
 
   /** Fill + label ink for a success-rate tile (shared kana-confidence scale). */
   rate(success: number): RampStep {
-    return rampStep(success);
+    return rampStep(success, this.theme.isDark());
   }
 
   /** Dash pattern for the coverage ring (r=15.5 → circumference ~97.4). */

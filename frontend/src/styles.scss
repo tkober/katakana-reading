@@ -1,0 +1,19 @@
+// Global styles entry point (#6, pages+components moved onto Sumi UI).
+// Sumi UI's tokens and base styles come first, then the app's own single
+// leftover token file (see styles/app-tokens.css) — every other global
+// rule (colors, body/button/box-sizing base rules, the kana-font class)
+// is gone: the base look now comes from Sumi UI's own `_base.scss` and
+// `--sumi-*` tokens.
+@use 'sumi-ui/projects/sumi-ui/styles/sumi';
+@use 'styles/app-tokens.css';
+
+// Temporary until #7/#9 move the remaining native controls onto Sumi UI's
+// own directives: Sumi's base styles deliberately leave bare buttons and
+// inputs alone, so without this they fall back to the browser's default
+// font instead of the UI font.
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

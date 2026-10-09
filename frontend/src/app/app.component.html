@@ -1,0 +1,17 @@
+<sumi-app-shell [brand]="brand" [nav]="navItems">
+  <sumi-app-switcher sumiShellSwitcher />
+
+  @if (api.profile(); as profile) {
+    <div sumiShellActions class="profile-pill">
+      <sumi-badge tone="accent" title="Level and Elo">
+        Lv {{ profile.level }} · {{ profile.elo | number: '1.0-0' }}
+      </sumi-badge>
+      @if (profile.streak > 1) {
+        <sumi-badge tone="neutral" title="Current streak">{{ profile.streak }} streak</sumi-badge>
+      }
+    </div>
+  }
+
+  <router-outlet />
+  <sumi-hotkey-help />
+</sumi-app-shell>

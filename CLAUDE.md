@@ -148,12 +148,28 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   validierte Original), uploaded_at. Datei-Wörterbücher haben hier **keine**
   Zeile — genau diese Abwesenheit unterscheidet „built-in" von „uploaded".
 
-### Frontend (`frontend/src/app/`)
+**Sumi UI** (`tkober/sumi-ui`, Issue #6): gemeinsame Angular-UI-Bibliothek der
+vier Japanisch-Apps, als Git-Submodule unter `frontend/sumi-ui` eingebunden
+(kein npm-Paket, kein Build — die App kompiliert die TS-Quellen über das
+`tsconfig`-`paths`-Mapping `sumi-ui/* → ./sumi-ui/projects/sumi-ui/src/*`
+direkt mit). Ein frischer Checkout ohne `--recurse-submodules` braucht einmal
+`git submodule update --init`, sonst ist `frontend/sumi-ui` leer und der Build
+bricht beim Auflösen von `sumi-ui/...`-Imports ab. **Nie im Submodule
+editieren und Lücken nie lokal umgehen** — fehlt in Sumi UI etwas, Issue +
+PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
 
-- `app.component.ts` — Shell: Router-Outlet + Tab-Links (routerLinkActive)
-  und Header mit Level/Elo/Streak-Chips (geteiltes Signal in
-  `api.service.ts`, beim Start über `/api/profile` befüllt, damit die Chips
-  auch bei einem Deep-Link auf `/dictionaries` stimmen).
+- `app.component.ts`/`.html`/`.css` — `sumi-app-shell` mit Marke (ア,
+  „Katakana Trainer"), Tab-Navigation (Practice/Stats/Dictionaries/Settings),
+  App-Umschalter (`sumi-app-switcher`) und `sumi-hotkey-help`. Profil-Badges
+  (Level/Elo akzentfarben, Streak neutral ab >1) im `sumiShellActions`-Slot,
+  gespeist vom geteilten Signal in `api.service.ts` (beim Start über
+  `/api/profile` befüllt, damit sie auch bei einem Deep-Link auf
+  `/dictionaries` stimmen). Das Theme (Light/Dark/System) kommt mit der Shell
+  (`SumiTheme`, Toggle im Header, Wahl in `localStorage['sumi-theme']`).
+- `app.config.ts` — `provideSumi({ accent: 'yamabuki', motif: 'waves',
+  pattern: 'seigaiha', companion: 'koi' })`. Platzhalter bis
+  `tkober/sumi-ui#25` die endgültige Gestaltung festlegt — nichts davon als
+  final verstehen.
 - `routes.ts` — Routen + Seitentitel.
 - `practice.component.ts` — Übungsansicht mit explizitem Session-Lebenszyklus
   (`idle` → `active` → `ended`): Die Session startet **nicht** automatisch,
@@ -163,10 +179,14 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   einer 44er-Box; Restsekunden in der Mitte, letzte 25 % und Überzeit rot,
   bei Überzeit zählt er als „+x,x s" hoch), Romaji-Input, Feedback pro
   Kana-Token (✓/✕), Enter-Flow
-  (prüfen → weiter), Herkunfts-Dictionary als Chip bei der Auflösung.
+  (prüfen → weiter), Herkunfts-Dictionary als Chip bei der Auflösung. Inhalt
+  in `<sumi-page [inkEnd]="false">` ohne Titel (die Übungsrunde trägt keine
+  Tusche, T7; das Session-Gate wird erst in #7 auf `sumi-session-gate`
+  umgestellt) — intern noch eigene Karten/Buttons, keine Sumi-Formulare.
 - `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
   Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
-  Source-Dictionary), Recent-Tabelle.
+  Source-Dictionary), Recent-Tabelle. In `<sumi-page title="Stats">`
+  (Musterband im Kopf + Landschaft am Seitenende kommen damit automatisch).
 - `dictionaries.component.ts` — Tab „Dictionaries": pro Wörterbuch eine Karte
   (Level-Verteilung als gestapelter Balken mit 2px-Lücken + Zahlen darunter,
   Wortlänge, Rating-Spanne, geübt, Erfolgsquote, Herkunfts-Chip
@@ -174,24 +194,42 @@ und darf kein DDL. Die Rechte des App-Users kommen aus serverseitigem
   + Upload-Panel (Datei wählen → JSON wird im Browser geparst, Name aus dem
   Dateinamen vorbelegt, Fehler des Backends werden pro Eintrag angezeigt;
   Template-Download als normaler `<a download>`) + filterbarer Wort-Browser
-  (Dictionary/Level/Suche/Sortierung, 50 pro Seite, Suche entprellt).
+  (Dictionary/Level/Suche/Sortierung, 50 pro Seite, Suche entprellt). In
+  `<sumi-page title="Dictionaries">`.
 - `settings.component.ts` — Zeitbudget (zwei Slider, Live-Vorschau an drei
   echten Wörtern, „Saved"/Revert/„Back to defaults"; Grenzen und Defaults
-  kommen aus `/api/settings`) + mehrstufiger Reset.
+  kommen aus `/api/settings`) + mehrstufiger Reset. In
+  `<sumi-page title="Settings">`.
 - `heatmap.component.ts` — Gojūon-Grid + Chips für Kombinationen (キャ, ファ, ッ,
   ー …), nutzt die geteilte Skala aus `ramp.ts`.
 - `ramp.ts` — sequenzielle Ein-Farb-Skala (blau, hell→dunkel = mehr; dark mode:
   Ramp umgekehrt, damit „mehr“ immer vom Hintergrund wegläuft). Jede Stufe
   bringt ihre Label-Tinte mit (≥ 5:1 auf der Füllung). Genutzt von der
   Kana-Heatmap **und** den Success-Rate-Kacheln der Vocabulary-Coverage —
-  gleiche Bedeutung, gleiche Farbsprache. Zusätzlich `LEVEL_COLORS` /
+  gleiche Bedeutung, gleiche Farbsprache. Zusätzlich `levelColors()` /
   `levelColor()`: **ordinale** 5-Stufen-Skala für die Level 1–5 (eigene
   Stufen, weil ordinal ≥2:1 zur Surface halten muss — ein dünnes Segment im
   Stapelbalken darf nicht im Hintergrund verschwinden). Farben stammen aus
   der validierten Referenzpalette des dataviz-Skills — dort validieren.
-- Light + Dark Mode über CSS Custom Properties in `styles.css`.
+  **Theme-aware by Parameter, nicht durch `prefers-color-scheme` beim
+  Modul-Load** (#6): `rampSteps(dark)`, `rampStep(value, dark)`,
+  `levelColors(dark)`, `levelColor(level, dark)` — jede Komponente injiziert
+  `SumiTheme` (`sumi-ui/core`) und reicht `theme.isDark()` durch, damit ein
+  Theme-Wechsel zur Laufzeit (nicht nur beim Neuladen) sofort neu rendert.
+- Light/Dark/System kommt aus Sumi UIs Theme-Toggle (`SumiTheme`, Shell-Header,
+  `localStorage['sumi-theme']`), nicht mehr aus einer eigenen
+  `prefers-color-scheme`-Media-Query. Farbtokens: Sumi UIs `--sumi-*` (siehe
+  `styles.scss`/`sumi-ui/projects/sumi-ui/styles/_tokens.scss`) plus die zwei
+  verbleibenden App-Tokens in `src/styles/app-tokens.css`
+  (`--series-1`/`--series-1-track` für Sparkline/Meter — temporär, bis #8 die
+  Stats auf Sumi-Charts umstellt).
 
 ## Entwicklung
+
+Frontend bindet `sumi-ui` als Git-Submodule ein; ein Checkout ohne
+`--recurse-submodules` (z. B. der Standard-Clone eines Coding-Agenten) braucht
+einmalig `git submodule update --init`, bevor `npm install`/`npm run build`
+im Submodule-Pfad auflöst.
 
 ```bash
 # Postgres für die lokale Entwicklung (legt via dev/initdb beide Rollen an)

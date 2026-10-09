@@ -36,6 +36,15 @@ und `/api` ans Backend weiterreicht. Der Fortschritt liegt im Volume
 
 ## Entwicklung
 
+Das Frontend bindet [Sumi UI](https://github.com/tkober/sumi-ui) als Git-Submodule
+ein — frisch klonen mit `--recurse-submodules`, sonst bleibt `frontend/sumi-ui`
+leer:
+
+```bash
+git clone --recurse-submodules https://github.com/tkober/katakana-reading.git
+# nachträglich in einem bestehenden Checkout: git submodule update --init
+```
+
 ```bash
 docker compose up -d postgres                        # DB auf :5432
 cd backend && cp .env.example .env                   # DB_*-Variablen füllen

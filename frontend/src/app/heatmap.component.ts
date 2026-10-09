@@ -1,7 +1,8 @@
-import { Component, Input, computed, signal } from '@angular/core';
+import { Component, Input, computed, inject, signal } from '@angular/core';
+import { SumiTheme } from 'sumi-ui/core';
 
 import { KanaStat } from './models';
-import { RAMP, rampStep } from './ramp';
+import { rampStep, rampSteps } from './ramp';
 
 const GRID: (string | null)[][] = [
   ['ア', 'イ', 'ウ', 'エ', 'オ'],
@@ -35,7 +36,7 @@ interface Cell {
   selector: 'app-heatmap',
   template: `
     <div class="wrap">
-      <div class="grid kana-font">
+      <div class="grid" lang="ja">
         @for (row of cells(); track $index) {
           @for (cell of row; track $index) {
             @if (cell.kana) {
@@ -58,7 +59,7 @@ interface Cell {
 
       @if (combos().length > 0) {
         <h3>Combinations &amp; special marks</h3>
-        <div class="combos kana-font">
+        <div class="combos" lang="ja">
           @for (cell of combos(); track cell.kana) {
             <div
               class="cell combo"
@@ -75,7 +76,7 @@ interface Cell {
 
       <div class="legend">
         <span>shaky</span>
-        @for (c of ramp; track $index) {
+        @for (c of ramp(); track $index) {
           <span class="swatch" [style.background]="c"></span>
         }
         <span>confident</span>
@@ -84,7 +85,7 @@ interface Cell {
 
       @if (hover(); as h) {
         <div class="tooltip">
-          <strong class="kana-font">{{ h.kana }}</strong>
+          <strong lang="ja">{{ h.kana }}</strong>
           @if (h.stat; as s) {
             <span>{{ s.correct }}/{{ s.attempts }} correct</span>
             <span>confidence {{ pct(s.ewma) }}</span>
@@ -118,8 +119,8 @@ interface Cell {
       }
       .cell.empty {
         background: transparent;
-        border: 1px solid var(--grid);
-        color: var(--muted);
+        border: 1px solid var(--sumi-line);
+        color: var(--sumi-muted);
         font-weight: 400;
       }
       .gap {
@@ -127,7 +128,7 @@ interface Cell {
       }
       h3 {
         font-size: 14px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         margin: 18px 0 8px;
         font-weight: 600;
       }
@@ -148,7 +149,7 @@ interface Cell {
         gap: 4px;
         margin-top: 16px;
         font-size: 12px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .legend .swatch {
         width: 18px;
@@ -171,22 +172,23 @@ interface Cell {
         display: flex;
         gap: 10px;
         align-items: baseline;
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 8px;
         padding: 6px 12px;
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       }
       .tooltip strong {
-        color: var(--ink);
+        color: var(--sumi-text);
         font-size: 16px;
       }
     `,
   ],
 })
 export class HeatmapComponent {
+  private readonly theme = inject(SumiTheme);
   private statsSig = signal<KanaStat[]>([]);
 
   @Input({ required: true }) set stats(value: KanaStat[]) {
@@ -194,7 +196,7 @@ export class HeatmapComponent {
   }
 
   readonly hover = signal<Cell | null>(null);
-  readonly ramp = RAMP;
+  readonly ramp = computed(() => rampSteps(this.theme.isDark()).map((s) => s.bg));
 
   readonly cells = computed<Cell[][]>(() => {
     const byKana = new Map(this.statsSig().map((s) => [s.kana, s]));
@@ -217,9 +219,9 @@ export class HeatmapComponent {
 
   private toCell(kana: string | null, stat: KanaStat | null): Cell {
     if (!kana || !stat) {
-      return { kana, stat: null, bg: 'transparent', fg: 'var(--muted)' };
+      return { kana, stat: null, bg: 'transparent', fg: 'var(--sumi-muted)' };
     }
-    const step = rampStep(stat.ewma);
+    const step = rampStep(stat.ewma, this.theme.isDark());
     return { kana, stat, bg: step.bg, fg: step.fg };
   }
 }

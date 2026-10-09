@@ -1,14 +1,16 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { SumiPage } from 'sumi-ui/layout';
 
 import { ApiService } from './api.service';
 import { TimeBudget } from './models';
 
 @Component({
   selector: 'app-settings',
-  imports: [DecimalPipe, FormsModule],
+  imports: [DecimalPipe, FormsModule, SumiPage],
   template: `
+    <sumi-page title="Settings">
     <section class="settings">
       <div class="panel">
         <h2>Reading time budget</h2>
@@ -61,7 +63,7 @@ import { TimeBudget } from './models';
               <div class="example">
                 <span class="ex-kana">{{ ex.kana }} kana</span>
                 <span class="ex-time">{{ ex.ms / 1000 | number: '1.1-1' }} s</span>
-                <span class="ex-word kana-font">{{ ex.sample }}</span>
+                <span class="ex-word" lang="ja">{{ ex.sample }}</span>
               </div>
             }
           </div>
@@ -148,6 +150,7 @@ import { TimeBudget } from './models';
         </p>
       </div>
     </section>
+    </sumi-page>
   `,
   styles: [
     `
@@ -157,8 +160,8 @@ import { TimeBudget } from './models';
         gap: 20px;
       }
       .panel {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 12px;
         padding: 18px 20px;
       }
@@ -168,17 +171,17 @@ import { TimeBudget } from './models';
       }
       .panel p {
         font-size: 14px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         margin: 0 0 14px;
       }
       .panel.danger {
-        border-color: var(--critical);
+        border-color: var(--sumi-wrong);
       }
       .warn {
-        color: var(--critical);
+        color: var(--sumi-wrong);
       }
       .success {
-        color: var(--good-text);
+        color: var(--sumi-correct);
         font-weight: 600;
       }
       .row {
@@ -197,14 +200,14 @@ import { TimeBudget } from './models';
         cursor: pointer;
       }
       .btn-accent {
-        background: var(--accent);
+        background: var(--sumi-accent);
         border: none;
-        color: var(--accent-ink);
+        color: var(--sumi-on-accent);
       }
       .btn-quiet {
         background: transparent;
         border: none;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         text-decoration: underline;
         padding-left: 4px;
       }
@@ -226,7 +229,7 @@ import { TimeBudget } from './models';
       }
       .field-label {
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .field-row {
         display: flex;
@@ -236,7 +239,7 @@ import { TimeBudget } from './models';
       .field-row input[type='range'] {
         flex: 1;
         min-width: 0;
-        accent-color: var(--accent);
+        accent-color: var(--sumi-accent);
       }
       .field-row output {
         font-variant-numeric: tabular-nums;
@@ -246,7 +249,7 @@ import { TimeBudget } from './models';
       }
       .formula {
         font-size: 13px !important;
-        color: var(--muted) !important;
+        color: var(--sumi-muted) !important;
         margin: 0 0 12px !important;
       }
       .examples {
@@ -260,19 +263,19 @@ import { TimeBudget } from './models';
         flex-direction: column;
         gap: 2px;
         padding: 8px 10px;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--sumi-line);
         border-radius: 10px;
       }
       .ex-word {
         font-size: 13px;
-        color: var(--muted);
+        color: var(--sumi-muted);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
       .ex-kana {
         font-size: 11px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .ex-time {
         font-size: 17px;
@@ -281,21 +284,24 @@ import { TimeBudget } from './models';
       }
       .saved-note {
         font-size: 13px;
-        color: var(--good-text);
+        color: var(--sumi-correct);
         font-weight: 600;
       }
       .muted {
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .btn-outline {
         background: transparent;
-        border: 1px solid var(--grid);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        color: var(--sumi-text);
       }
       .btn-danger {
-        background: var(--critical);
-        border: none;
-        color: #fff;
+        /* Outlined like sumiButton's danger variant at rest: text on a red
+           fill needs --sumi-on-wrong (tkober/sumi-ui#44), and the whole
+           button moves onto sumiButton in #9 anyway. */
+        background: transparent;
+        border: 1px solid var(--sumi-wrong);
+        color: var(--sumi-wrong);
       }
       .btn-danger:disabled {
         opacity: 0.45;
@@ -304,17 +310,17 @@ import { TimeBudget } from './models';
       .confirm-input {
         padding: 9px 12px;
         border-radius: 8px;
-        border: 1px solid var(--grid);
-        background: var(--page);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        background: var(--sumi-bg);
+        color: var(--sumi-text);
         font: inherit;
         width: 130px;
         text-align: center;
         letter-spacing: 0.1em;
       }
       code {
-        background: var(--page);
-        border: 1px solid var(--grid);
+        background: var(--sumi-bg);
+        border: 1px solid var(--sumi-line);
         border-radius: 4px;
         padding: 1px 5px;
         font-size: 13px;

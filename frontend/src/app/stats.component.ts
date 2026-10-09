@@ -1,490 +1,258 @@
-import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { SumiTheme } from 'sumi-ui/core';
-import { SumiPage } from 'sumi-ui/layout';
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import {
+  SUMI_CHARTS,
+  type SumiMatrixCellInput,
+  type SumiMatrixCellSelection,
+  type SumiSegment,
+  type SumiTableColumn,
+  type SumiTableRow,
+} from 'sumi-ui/charts';
+import { SumiCard, SumiEmptyState, SumiPage } from 'sumi-ui/layout';
 
 import { ApiService } from './api.service';
-import { HeatmapComponent } from './heatmap.component';
-import { KanaStat, Stats } from './models';
-import { RampStep, rampStep, rampSteps } from './ramp';
+import { CoverageRow, KanaStat, Stats } from './models';
+
+/** Compact percent for library charts (matrix cells, nothing else) — no
+ *  space before `%`, matches the pilot's own `toPercent` convention since
+ *  these render inside tight cells. */
+function toPercent(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
+/** Percent for the app's own KPI/table text — space before `%`, the
+ *  convention this page already used before the Sumi migration. */
+function percent(value: number): string {
+  return `${Math.round(value * 100)} %`;
+}
+
+/** Basic gojūon grid: row header = the a-column kana, `null` = a slot that
+ *  does not exist (ヤ/i, ヤ/e, ワ/i, ワ/u, ワ/e — `blank: true` cells).
+ *  ヲ sits in ワ/o, same place the kana itself is read. */
+const BASIC_COLUMNS = ['a', 'i', 'u', 'e', 'o'];
+const BASIC_ROWS: { header: string; kana: (string | null)[] }[] = [
+  { header: 'ア', kana: ['ア', 'イ', 'ウ', 'エ', 'オ'] },
+  { header: 'カ', kana: ['カ', 'キ', 'ク', 'ケ', 'コ'] },
+  { header: 'サ', kana: ['サ', 'シ', 'ス', 'セ', 'ソ'] },
+  { header: 'タ', kana: ['タ', 'チ', 'ツ', 'テ', 'ト'] },
+  { header: 'ナ', kana: ['ナ', 'ニ', 'ヌ', 'ネ', 'ノ'] },
+  { header: 'ハ', kana: ['ハ', 'ヒ', 'フ', 'ヘ', 'ホ'] },
+  { header: 'マ', kana: ['マ', 'ミ', 'ム', 'メ', 'モ'] },
+  { header: 'ヤ', kana: ['ヤ', null, 'ユ', null, 'ヨ'] },
+  { header: 'ラ', kana: ['ラ', 'リ', 'ル', 'レ', 'ロ'] },
+  { header: 'ワ', kana: ['ワ', null, null, null, 'ヲ'] },
+  { header: 'ガ', kana: ['ガ', 'ギ', 'グ', 'ゲ', 'ゴ'] },
+  { header: 'ザ', kana: ['ザ', 'ジ', 'ズ', 'ゼ', 'ゾ'] },
+  { header: 'ダ', kana: ['ダ', 'ヂ', 'ヅ', 'デ', 'ド'] },
+  { header: 'バ', kana: ['バ', 'ビ', 'ブ', 'ベ', 'ボ'] },
+  { header: 'パ', kana: ['パ', 'ピ', 'プ', 'ペ', 'ポ'] },
+];
+
+/** Digraph grid: row = base consonant kana, column = small ya/yu/yo kana —
+ *  every (row, column) pair is a real digraph, no blanks. */
+const COMBO_ROWS = ['キ', 'シ', 'チ', 'ニ', 'ヒ', 'ミ', 'リ', 'ギ', 'ジ', 'ビ', 'ピ'];
+const COMBO_COLUMNS = ['ya', 'yu', 'yo'];
+const COMBO_SUFFIX: Record<string, string> = { ya: 'ャ', yu: 'ュ', yo: 'ョ' };
+
+/** Extended kana & marks: always shown even if never practised, then every
+ *  other practised token outside the two grids above — same "only what was
+ *  practised" rule today's combo chips used. */
+const ALWAYS_EXTENDED = ['ッ', 'ン', 'ー'];
+
+const BASIC_KANA = new Set(
+  BASIC_ROWS.flatMap((row) => row.kana).filter((k): k is string => k !== null),
+);
+const COMBO_KANA = new Set(
+  COMBO_ROWS.flatMap((row) => COMBO_COLUMNS.map((column) => row + COMBO_SUFFIX[column])),
+);
+
+type MatrixId = 'basic' | 'combinations' | 'extended';
+
+/** One kana-confidence matrix, plus a `kanaOf` so a `cellSelect` (whose row
+ *  may be a consonant, not a full kana — see the combinations grid) can be
+ *  turned back into the actual kana for the shared readout line. */
+interface Matrix {
+  id: MatrixId;
+  title: string;
+  ariaLabel: string;
+  rows: string[];
+  columns: string[];
+  cells: SumiMatrixCellInput[];
+  kanaOf: (row: string, column: string) => string;
+}
+
+/** The cell currently selected across all three matrices — shared so only
+ *  one ever shows a selection ring, and the readout below them can name
+ *  the cell unambiguously (pattern from jp-conjugation's miss-rate card). */
+interface Selection {
+  matrix: MatrixId;
+  row: string;
+  column: string;
+  kana: string;
+  value: number | null;
+  detail?: string;
+}
+
+function statCell(row: string, column: string, stat: KanaStat | null): SumiMatrixCellInput {
+  if (!stat) {
+    return { row, column, value: null, detail: 'not practised yet' };
+  }
+  return { row, column, value: stat.ewma, detail: `${stat.correct}/${stat.attempts} correct` };
+}
+
+function basicMatrix(byKana: Map<string, KanaStat>): Matrix {
+  const cells: SumiMatrixCellInput[] = [];
+  for (const row of BASIC_ROWS) {
+    row.kana.forEach((kana, i) => {
+      const column = BASIC_COLUMNS[i];
+      if (kana === null) {
+        cells.push({ row: row.header, column, value: null, blank: true });
+        return;
+      }
+      cells.push(statCell(row.header, column, byKana.get(kana) ?? null));
+    });
+  }
+  return {
+    id: 'basic',
+    title: 'Basic kana',
+    ariaLabel: 'Basic katakana reading confidence, by consonant row and vowel column',
+    rows: BASIC_ROWS.map((row) => row.header),
+    columns: BASIC_COLUMNS,
+    cells,
+    kanaOf: (row, column) => {
+      const def = BASIC_ROWS.find((r) => r.header === row);
+      const i = BASIC_COLUMNS.indexOf(column);
+      return (def && def.kana[i]) || row;
+    },
+  };
+}
+
+function combinationsMatrix(byKana: Map<string, KanaStat>): Matrix {
+  const cells: SumiMatrixCellInput[] = [];
+  for (const row of COMBO_ROWS) {
+    for (const column of COMBO_COLUMNS) {
+      const kana = row + COMBO_SUFFIX[column];
+      cells.push(statCell(row, column, byKana.get(kana) ?? null));
+    }
+  }
+  return {
+    id: 'combinations',
+    title: 'Combinations',
+    ariaLabel: 'Katakana digraph reading confidence, by consonant row and small-kana column',
+    rows: COMBO_ROWS,
+    columns: COMBO_COLUMNS,
+    cells,
+    kanaOf: (row, column) => row + COMBO_SUFFIX[column],
+  };
+}
+
+function extendedMatrix(allKana: KanaStat[], byKana: Map<string, KanaStat>): Matrix {
+  const others = allKana
+    .filter((k) => !BASIC_KANA.has(k.kana) && !COMBO_KANA.has(k.kana) && !ALWAYS_EXTENDED.includes(k.kana))
+    .sort((a, b) => b.attempts - a.attempts)
+    .map((k) => k.kana);
+  const rows = [...ALWAYS_EXTENDED, ...others];
+  return {
+    id: 'extended',
+    title: 'Extended kana & marks',
+    ariaLabel: 'Extended katakana and marks reading confidence',
+    rows,
+    columns: ['Confidence'],
+    cells: rows.map((kana) => statCell(kana, 'Confidence', byKana.get(kana) ?? null)),
+    kanaOf: (row) => row,
+  };
+}
+
+const WEAKEST_COLUMNS: SumiTableColumn[] = [
+  { key: 'kana', label: 'Kana' },
+  { key: 'confidence', label: 'Confidence', align: 'end' },
+  { key: 'correct', label: 'Correct', align: 'end' },
+];
+
+const COVERAGE_COLUMNS: SumiTableColumn[] = [
+  { key: 'group', label: 'Group' },
+  { key: 'coverage', label: 'Coverage' },
+  { key: 'success', label: 'Success', align: 'end' },
+];
+
+const RECENT_COLUMNS: SumiTableColumn[] = [
+  { key: 'word', label: 'Word' },
+  { key: 'romaji', label: 'Romaji' },
+  { key: 'answer', label: 'Answer', toneKey: 'answerTone' },
+  { key: 'kana', label: 'Kana' },
+  { key: 'time', label: 'Time', align: 'end' },
+  { key: 'elo', label: 'Elo', align: 'end', toneKey: 'eloTone' },
+  { key: 'when', label: 'When' },
+];
 
 @Component({
   selector: 'app-stats',
-  imports: [DecimalPipe, DatePipe, HeatmapComponent, SumiPage],
-  template: `
-    <sumi-page title="Stats">
-    @if (stats(); as s) {
-      <section class="stats">
-        <div class="tiles">
-          <div class="tile">
-            <div class="tile-label">Level</div>
-            <div class="tile-value">{{ s.level }}</div>
-            <div class="meter">
-              <div class="meter-fill" [style.width.%]="s.level_progress * 100"></div>
-            </div>
-            <div class="tile-sub">
-              {{ s.level_progress * 100 | number: '1.0-0' }} % to level
-              {{ s.level < s.max_level ? s.level + 1 : s.max_level }}
-            </div>
-          </div>
-          <div class="tile">
-            <div class="tile-label">Elo</div>
-            <div class="tile-value">{{ s.elo | number: '1.0-0' }}</div>
-            @if (sparkPoints(); as pts) {
-              <svg class="spark" viewBox="0 0 240 56" preserveAspectRatio="none">
-                <polyline
-                  [attr.points]="pts.line"
-                  fill="none"
-                  stroke="var(--series-1)"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                  stroke-linecap="round"
-                />
-                <circle
-                  [attr.cx]="pts.endX"
-                  [attr.cy]="pts.endY"
-                  r="4"
-                  fill="var(--series-1)"
-                  stroke="var(--sumi-surface)"
-                  stroke-width="2"
-                />
-              </svg>
-              <div class="tile-sub">last {{ s.elo_history.length }} answers</div>
-            }
-          </div>
-          <div class="tile">
-            <div class="tile-label">Accuracy</div>
-            <div class="tile-value">
-              {{ s.accuracy !== null ? (s.accuracy * 100 | number: '1.0-0') + ' %' : '–' }}
-            </div>
-            <div class="tile-sub">{{ s.correct_attempts }}/{{ s.total_attempts }} words</div>
-          </div>
-          <div class="tile">
-            <div class="tile-label">Reading speed</div>
-            <div class="tile-value">
-              {{
-                s.total_attempts > 0
-                  ? (s.avg_time_per_kana_ms / 1000 | number: '1.1-1') + ' s'
-                  : '–'
-              }}
-            </div>
-            <div class="tile-sub">
-              per kana · avg {{ s.avg_time_ms / 1000 | number: '1.1-1' }} s per word
-            </div>
-          </div>
-          <div class="tile">
-            <div class="tile-label">Streak</div>
-            <div class="tile-value">{{ s.current_streak }}</div>
-            <div class="tile-sub">best: {{ s.best_streak }} in a row</div>
-          </div>
-        </div>
-
-        @if (weakest().length > 0) {
-          <div class="panel">
-            <h2>Your weakest kana</h2>
-            <div class="weak-list">
-              @for (k of weakest(); track k.kana) {
-                <span class="weak-chip" lang="ja">
-                  {{ k.kana }}
-                  <small>{{ k.ewma * 100 | number: '1.0-0' }} %</small>
-                </span>
-              }
-            </div>
-            <p class="panel-note">Practice now favors words containing these kana.</p>
-          </div>
-        }
-
-        <div class="panel">
-          <h2>Vocabulary coverage</h2>
-          <div class="coverage-grid">
-            <div>
-              <h3>By level</h3>
-              @for (row of s.coverage.levels; track row.key) {
-                <div class="cov-row">
-                  <svg class="cov-ring" viewBox="0 0 36 36" aria-hidden="true">
-                    <circle class="ring-track" cx="18" cy="18" r="15.5" />
-                    @if (row.seen > 0) {
-                      <circle
-                        class="ring-fill"
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        [attr.stroke-dasharray]="ringDash(row.seen, row.total)"
-                      />
-                    }
-                    <text class="ring-text" x="18" y="19">
-                      {{ (row.seen / row.total) * 100 | number: '1.0-0' }}%
-                    </text>
-                  </svg>
-                  <div class="cov-main">
-                    <span class="cov-label">Level {{ row.key }}</span>
-                    <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
-                  </div>
-                  @if (row.success !== null) {
-                    @let cell = rate(row.success);
-                    <span
-                      class="cov-rate"
-                      [style.background]="cell.bg"
-                      [style.color]="cell.fg"
-                      [title]="'Success rate ' + (row.success * 100 | number: '1.0-0') + ' %'"
-                    >
-                      {{ row.success * 100 | number: '1.0-0' }} %
-                    </span>
-                  } @else {
-                    <span class="cov-rate empty" title="Nothing answered yet">–</span>
-                  }
-                </div>
-              }
-            </div>
-            <div>
-              <h3>By dictionary</h3>
-              @for (row of s.coverage.sources; track row.key) {
-                <div class="cov-row">
-                  <svg class="cov-ring" viewBox="0 0 36 36" aria-hidden="true">
-                    <circle class="ring-track" cx="18" cy="18" r="15.5" />
-                    @if (row.seen > 0) {
-                      <circle
-                        class="ring-fill"
-                        cx="18"
-                        cy="18"
-                        r="15.5"
-                        [attr.stroke-dasharray]="ringDash(row.seen, row.total)"
-                      />
-                    }
-                    <text class="ring-text" x="18" y="19">
-                      {{ (row.seen / row.total) * 100 | number: '1.0-0' }}%
-                    </text>
-                  </svg>
-                  <div class="cov-main">
-                    <span class="cov-label">{{ row.key }}</span>
-                    <span class="cov-nums">{{ row.seen }}/{{ row.total }} seen</span>
-                  </div>
-                  @if (row.success !== null) {
-                    @let cell = rate(row.success);
-                    <span
-                      class="cov-rate"
-                      [style.background]="cell.bg"
-                      [style.color]="cell.fg"
-                      [title]="'Success rate ' + (row.success * 100 | number: '1.0-0') + ' %'"
-                    >
-                      {{ row.success * 100 | number: '1.0-0' }} %
-                    </span>
-                  } @else {
-                    <span class="cov-rate empty" title="Nothing answered yet">–</span>
-                  }
-                </div>
-              }
-            </div>
-          </div>
-          <div class="legend">
-            <span>0 %</span>
-            @for (c of ramp(); track $index) {
-              <span class="swatch" [style.background]="c"></span>
-            }
-            <span>100 %</span>
-            <span class="legend-note">– = nothing answered yet</span>
-          </div>
-          <p class="panel-note">
-            Ring = share of words seen at least once; colored tile = success rate of all answers in
-            that group (same scale as kana confidence).
-          </p>
-        </div>
-
-        <div class="panel">
-          <h2>Kana confidence</h2>
-          <app-heatmap [stats]="s.kana" />
-        </div>
-
-        @if (s.recent.length > 0) {
-          <div class="panel">
-            <h2>Recent answers</h2>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Word</th>
-                    <th>Romaji</th>
-                    <th>Answer</th>
-                    <th>Kana</th>
-                    <th>Time</th>
-                    <th>Elo</th>
-                    <th>When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (a of s.recent; track $index) {
-                    <tr>
-                      <td>
-                        <span
-                          class="dot"
-                          [class.dot-ok]="a.correct"
-                          [class.dot-bad]="!a.correct"
-                        ></span>
-                        <span lang="ja">{{ a.katakana }}</span>
-                      </td>
-                      <td>{{ a.romaji }}</td>
-                      <td [class.bad-text]="!a.correct">{{ a.answer || '–' }}</td>
-                      <td>{{ a.kana_correct }}/{{ a.kana_total }}</td>
-                      <td>{{ a.time_ms / 1000 | number: '1.1-1' }} s</td>
-                      <td [class.good-text]="a.elo_delta >= 0" [class.bad-text]="a.elo_delta < 0">
-                        {{ a.elo_delta >= 0 ? '+' : '' }}{{ a.elo_delta | number: '1.1-1' }}
-                      </td>
-                      <td class="muted">{{ a.created_at | date: 'MMM d, HH:mm' }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          </div>
-        }
-      </section>
-    } @else {
-      <p class="loading">Loading stats…</p>
-    }
-    </sumi-page>
-  `,
-  styles: [
-    `
-      .stats {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-      }
-      .tiles {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 12px;
-      }
-      .tile {
-        background: var(--sumi-surface);
-        border: 1px solid var(--sumi-line);
-        border-radius: 12px;
-        padding: 14px 16px;
-      }
-      .tile-label {
-        font-size: 13px;
-        color: var(--sumi-text-2);
-      }
-      .tile-value {
-        font-size: 30px;
-        font-weight: 600;
-        margin: 2px 0;
-      }
-      .tile-sub {
-        font-size: 12px;
-        color: var(--sumi-muted);
-      }
-      .meter {
-        height: 6px;
-        border-radius: 3px;
-        background: var(--series-1-track);
-        margin: 8px 0 6px;
-        overflow: hidden;
-      }
-      .meter-fill {
-        height: 100%;
-        background: var(--series-1);
-        border-radius: 3px;
-      }
-      .spark {
-        width: 100%;
-        height: 56px;
-        margin: 4px 0 2px;
-      }
-      .panel {
-        background: var(--sumi-surface);
-        border: 1px solid var(--sumi-line);
-        border-radius: 12px;
-        padding: 18px 20px;
-      }
-      .panel h2 {
-        font-size: 16px;
-        margin: 0 0 14px;
-      }
-      .panel-note {
-        font-size: 13px;
-        color: var(--sumi-muted);
-        margin: 12px 0 0;
-      }
-      .coverage-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 12px 32px;
-      }
-      .coverage-grid h3 {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--sumi-text-2);
-        margin: 0 0 8px;
-      }
-      .cov-row {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        align-items: center;
-        gap: 12px;
-        padding: 5px 0;
-        font-size: 13px;
-      }
-      .cov-ring {
-        width: 40px;
-        height: 40px;
-      }
-      .ring-track,
-      .ring-fill {
-        fill: none;
-        stroke-width: 3.5;
-      }
-      .ring-track {
-        stroke: var(--series-1-track);
-      }
-      .ring-fill {
-        stroke: var(--series-1);
-        stroke-linecap: round;
-        transform: rotate(-90deg);
-        transform-origin: 18px 18px;
-      }
-      .ring-text {
-        fill: var(--sumi-text);
-        font-size: 9px;
-        font-weight: 600;
-        text-anchor: middle;
-        dominant-baseline: middle;
-      }
-      .cov-main {
-        display: flex;
-        flex-direction: column;
-        line-height: 1.35;
-      }
-      .cov-label {
-        color: var(--sumi-text);
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .cov-nums {
-        color: var(--sumi-muted);
-        font-size: 12px;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-      }
-      .cov-rate {
-        justify-self: end;
-        min-width: 52px;
-        padding: 4px 8px;
-        border-radius: 6px;
-        text-align: center;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.35;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-      }
-      .cov-rate.empty {
-        background: transparent;
-        color: var(--sumi-muted);
-        font-weight: 400;
-      }
-      .legend {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        margin-top: 16px;
-        font-size: 12px;
-        color: var(--sumi-muted);
-      }
-      .legend .swatch {
-        width: 18px;
-        height: 10px;
-        border-radius: 2px;
-      }
-      .legend span:first-child {
-        margin-right: 4px;
-      }
-      .legend span:nth-last-child(2) {
-        margin-left: 4px;
-      }
-      .legend-note {
-        margin-left: 14px;
-      }
-      .legend + .panel-note {
-        margin-top: 8px;
-      }
-      .weak-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .weak-chip {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 8px;
-        border: 1px solid var(--sumi-line);
-        border-radius: 10px;
-        padding: 6px 12px;
-        font-size: 20px;
-        font-weight: 600;
-      }
-      .weak-chip small {
-        font-size: 12px;
-        color: var(--sumi-text-2);
-        font-weight: 400;
-      }
-      .table-wrap {
-        overflow-x: auto;
-      }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-      }
-      th {
-        text-align: left;
-        font-weight: 600;
-        color: var(--sumi-text-2);
-        font-size: 12px;
-        padding: 6px 10px;
-        border-bottom: 1px solid var(--sumi-line);
-      }
-      td {
-        padding: 7px 10px;
-        border-bottom: 1px solid var(--sumi-line);
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-      }
-      .dot {
-        display: inline-block;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        margin-right: 6px;
-      }
-      .dot-ok {
-        background: var(--sumi-correct);
-      }
-      .dot-bad {
-        background: var(--sumi-wrong);
-      }
-      .good-text {
-        color: var(--sumi-correct);
-      }
-      .bad-text {
-        color: var(--sumi-wrong);
-      }
-      .muted {
-        color: var(--sumi-muted);
-      }
-      .loading {
-        color: var(--sumi-muted);
-        text-align: center;
-      }
-    `,
-  ],
+  imports: [SumiCard, SumiEmptyState, SumiPage, ...SUMI_CHARTS],
+  providers: [DatePipe],
+  templateUrl: './stats.component.html',
+  styleUrl: './stats.component.css',
 })
-export class StatsComponent implements OnInit {
-  private api = inject(ApiService);
-  private readonly theme = inject(SumiTheme);
+export class StatsComponent {
+  private readonly api = inject(ApiService);
+  private readonly datePipe = inject(DatePipe);
 
   readonly stats = signal<Stats | null>(null);
-  readonly ramp = computed(() => rampSteps(this.theme.isDark()).map((s) => s.bg));
+  readonly selected = signal<Selection | null>(null);
+
+  protected readonly toPercent = toPercent;
+  protected readonly weakestColumns = WEAKEST_COLUMNS;
+  protected readonly coverageColumns = COVERAGE_COLUMNS;
+  protected readonly recentColumns = RECENT_COLUMNS;
+
+  readonly levelHint = computed(() => {
+    const s = this.stats();
+    if (!s) {
+      return undefined;
+    }
+    if (s.level >= s.max_level) {
+      return 'max level';
+    }
+    return `${Math.round(s.level_progress * 100)} % to level ${s.level + 1}`;
+  });
+
+  readonly eloValue = computed(() => Math.round(this.stats()?.elo ?? 0));
+
+  readonly eloHint = computed(() => {
+    const s = this.stats();
+    return s && s.elo_history.length > 0 ? `last ${s.elo_history.length} answers` : undefined;
+  });
+
+  /** Last minus first point of the Elo history, rounded to 1 decimal;
+   *  `null` below 2 points (the sparkline itself does not render then). */
+  readonly eloDelta = computed(() => {
+    const history = this.stats()?.elo_history ?? [];
+    if (history.length < 2) {
+      return null;
+    }
+    return Math.round((history[history.length - 1] - history[0]) * 10) / 10;
+  });
+
+  readonly accuracyValue = computed(() => {
+    const accuracy = this.stats()?.accuracy ?? null;
+    return accuracy !== null ? percent(accuracy) : '–';
+  });
+
+  readonly accuracyHint = computed(() => {
+    const s = this.stats();
+    return s ? `${s.correct_attempts}/${s.total_attempts} words` : undefined;
+  });
+
+  readonly speedValue = computed(() => {
+    const s = this.stats();
+    return s && s.total_attempts > 0 ? `${(s.avg_time_per_kana_ms / 1000).toFixed(1)} s` : '–';
+  });
+
+  readonly speedHint = computed(() => {
+    const s = this.stats();
+    return s ? `per kana · Ø ${(s.avg_time_ms / 1000).toFixed(1)} s per word` : undefined;
+  });
+
+  readonly streakHint = computed(() => `best: ${this.stats()?.best_streak ?? 0} in a row`);
 
   readonly weakest = computed<KanaStat[]>(() => {
     const s = this.stats();
@@ -497,44 +265,79 @@ export class StatsComponent implements OnInit {
       .slice(0, 6);
   });
 
-  readonly sparkPoints = computed(() => {
+  readonly weakestRows = computed<SumiTableRow[]>(() =>
+    this.weakest().map((k) => ({
+      kana: k.kana,
+      confidence: percent(k.ewma),
+      correct: `${k.correct}/${k.attempts}`,
+    })),
+  );
+
+  readonly levelCoverageRows = computed<SumiTableRow[]>(() =>
+    (this.stats()?.coverage.levels ?? []).map((row) => this.coverageRow(`Level ${row.key}`, row)),
+  );
+
+  readonly sourceCoverageRows = computed<SumiTableRow[]>(() =>
+    (this.stats()?.coverage.sources ?? []).map((row) => this.coverageRow(row.key, row)),
+  );
+
+  readonly matrices = computed<Matrix[]>(() => {
     const s = this.stats();
-    if (!s || s.elo_history.length < 2) {
-      return null;
+    if (!s) {
+      return [];
     }
-    const hist = s.elo_history;
-    const min = Math.min(...hist);
-    const max = Math.max(...hist);
-    const span = Math.max(max - min, 10);
-    const w = 240;
-    const h = 56;
-    const pad = 5;
-    const pts = hist.map((v, i) => {
-      const x = pad + (i / (hist.length - 1)) * (w - 2 * pad);
-      const y = h - pad - ((v - min) / span) * (h - 2 * pad);
-      return [x, y] as const;
-    });
-    const last = pts[pts.length - 1];
-    return {
-      line: pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '),
-      endX: last[0].toFixed(1),
-      endY: last[1].toFixed(1),
-    };
+    const byKana = new Map(s.kana.map((k) => [k.kana, k]));
+    return [basicMatrix(byKana), combinationsMatrix(byKana), extendedMatrix(s.kana, byKana)];
   });
 
-  ngOnInit(): void {
+  readonly recentRows = computed<SumiTableRow[]>(() =>
+    (this.stats()?.recent ?? []).map((a) => ({
+      word: a.katakana,
+      romaji: a.romaji,
+      answer: a.answer || '–',
+      answerTone: a.correct ? 'correct' : 'wrong',
+      kana: `${a.kana_correct}/${a.kana_total}`,
+      time: `${(a.time_ms / 1000).toFixed(1)} s`,
+      elo: `${a.elo_delta >= 0 ? '+' : ''}${a.elo_delta.toFixed(1)}`,
+      eloTone: a.elo_delta > 0 ? 'correct' : a.elo_delta < 0 ? 'wrong' : undefined,
+      when: this.datePipe.transform(a.created_at, 'MMM d, HH:mm') ?? a.created_at,
+    })),
+  );
+
+  constructor() {
     this.api.stats().subscribe((s) => this.stats.set(s));
   }
 
-  /** Fill + label ink for a success-rate tile (shared kana-confidence scale). */
-  rate(success: number): RampStep {
-    return rampStep(success, this.theme.isDark());
+  protected selectedCellFor(matrix: MatrixId): { row: string; column: string } | null {
+    const sel = this.selected();
+    if (!sel || sel.matrix !== matrix) {
+      return null;
+    }
+    return { row: sel.row, column: sel.column };
   }
 
-  /** Dash pattern for the coverage ring (r=15.5 → circumference ~97.4). */
-  ringDash(seen: number, total: number): string {
-    const circumference = 2 * Math.PI * 15.5;
-    const filled = total > 0 ? (seen / total) * circumference : 0;
-    return `${filled.toFixed(2)} ${circumference.toFixed(2)}`;
+  protected onSelect(matrix: Matrix, selection: SumiMatrixCellSelection): void {
+    this.selected.set({
+      matrix: matrix.id,
+      row: selection.row,
+      column: selection.column,
+      kana: matrix.kanaOf(selection.row, selection.column),
+      value: selection.value,
+      detail: selection.detail,
+    });
+  }
+
+  private coverageRow(label: string, row: CoverageRow): SumiTableRow {
+    const segments: SumiSegment[] = [
+      { label: 'Seen', value: row.seen, color: 'var(--sumi-accent)' },
+      { label: 'Not seen yet', value: row.total - row.seen, color: 'var(--sumi-sunken)' },
+    ];
+    return {
+      group: label,
+      ariaLabel: `${label}: ${row.seen} of ${row.total} words seen`,
+      segments,
+      seenLabel: `${row.seen}/${row.total} seen`,
+      success: row.success !== null ? percent(row.success) : '–',
+    };
   }
 }

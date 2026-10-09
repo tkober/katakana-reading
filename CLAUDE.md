@@ -202,10 +202,41 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   Falsch-nicht-aufgegeben) bleibt app-spezifisch im `sumiVerdictDetails`-Slot,
   standardmäßig offen (`F` persistiert das für den Rest der Session, kein
   Reset pro Wort). `?` registriert die Seite selbst, aktiv nur mit Verdict.
-- `stats.component.ts` — KPI-Kacheln, Elo-Sparkline (SVG), schwächste Kana,
-  Vocabulary-Coverage (gesehen/gesamt + Success-Rate, je Level und je
-  Source-Dictionary), Recent-Tabelle. In `<sumi-page title="Stats">`
-  (Musterband im Kopf + Landschaft am Seitenende kommen damit automatisch).
+- `stats.component.ts`/`.html`/`.css` (#8) — KPI-Kacheln (`sumi-stat-grid` +
+  `sumi-stat-tile`, Level/Elo/Accuracy/Reading speed/Streak, die
+  Zusatzzahlen als `hint`), Elo-Verlauf (`sumi-sparkline`, nur ab 2 Punkten,
+  `[table]="true"`), schwächste Kana (`sumi-data-table`, nur wenn nicht
+  leer; gleiche Regel wie zuvor: attempts ≥ 3 und ewma < 0.75, schwächste
+  zuerst, max. 6), Vocabulary-Coverage (zwei `sumi-data-table`s „By
+  level"/„By dictionary", Coverage-Spalte als `sumiTableCell`-Template mit
+  `sumi-segmented-bar` `height="sm"` — „Seen" in `var(--sumi-accent)`,
+  „Not seen yet" in `var(--sumi-sunken)` — plus Text „x/y seen", Success
+  als eigene Spalte), Kana-Konfidenz (drei `sumi-matrix-heatmap`s, siehe
+  unten), Recent-Tabelle (`sumi-data-table`, `toneKey` für Antwort
+  richtig/falsch und Elo-Vorzeichen, `sumiTableCell` fürs Wort mit
+  `lang="ja"`). Bei `total_attempts === 0` ersetzt ein `sumi-empty-state`
+  (`companion="koi"`, T3) alle Karten außer den Kacheln. In
+  `<sumi-page title="Stats">` (Musterband im Kopf + Landschaft am
+  Seitenende kommen damit automatisch).
+  Kana-Konfidenz ist drei `sumi-matrix-heatmap`s in einer Karte, `[domain]="[0,
+  1]"`, Prozent-Format, `cellLang="ja"`, `[showValues]="true"`, `[table]="true"`,
+  `noDataLabel="Not practised yet"`, `selectable` mit einer gemeinsamen
+  Readout-Zeile darunter (Muster aus jp-conjugations Miss-Rate-Karte: ein
+  geteiltes `selected`-Signal, `cellSelect` schreibt hinein, jede Matrix
+  zeigt nur ihren eigenen Ring): **Basis-Kana** (Zeilen ア…パ, Spalten a i
+  u e o, Zeilenkopf = das a-Kana der Reihe; nicht existierende Slots —
+  ヤ/i, ヤ/e, ワ/i, ワ/u, ワ/e — sind `blank: true`, ヲ sitzt in ワ/o),
+  **Kombinationen** (Zeilen キ シ チ ニ ヒ ミ リ ギ ジ ビ ピ, Spalten ya yu
+  yo, Zelle = Zeile + kleines ャ/ュ/ョ), **Erweiterte Kana & Zeichen** (eine
+  Spalte „Confidence", Zeilen ッ/ン/ー immer, dann jedes weitere geübte
+  Token außerhalb der beiden anderen Grids, meistgeübt zuerst — dieselbe
+  „nur was geübt wurde"-Regel wie früher die Kombi-Chips). Eine Map
+  (Zeile, Spalte) → tatsächliches Kana lebt in der Komponente, damit die
+  Readout-Zeile das ausgewählte Kana nennen kann (bei den Kombinationen ist
+  die Zeile nur der Konsonant, nicht das volle Kana). Die Ramp kommt jetzt
+  komplett aus der Bibliothek (`--sumi-seq-*`, aus dem Akzent abgeleitet,
+  theme-aware per CSS `light-dark()` ohne JS) — `ramp.ts`s alte
+  Konfidenz-Skala (`rampStep`/`rampSteps`) ist damit weg, siehe unten.
 - `dictionaries.component.ts` — Tab „Dictionaries": pro Wörterbuch eine Karte
   (Level-Verteilung als gestapelter Balken mit 2px-Lücken + Zahlen darunter,
   Wortlänge, Rating-Spanne, geübt, Erfolgsquote, Herkunfts-Chip
@@ -219,29 +250,30 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   echten Wörtern, „Saved"/Revert/„Back to defaults"; Grenzen und Defaults
   kommen aus `/api/settings`) + mehrstufiger Reset. In
   `<sumi-page title="Settings">`.
-- `heatmap.component.ts` — Gojūon-Grid + Chips für Kombinationen (キャ, ファ, ッ,
-  ー …), nutzt die geteilte Skala aus `ramp.ts`.
-- `ramp.ts` — sequenzielle Ein-Farb-Skala (blau, hell→dunkel = mehr; dark mode:
-  Ramp umgekehrt, damit „mehr“ immer vom Hintergrund wegläuft). Jede Stufe
-  bringt ihre Label-Tinte mit (≥ 5:1 auf der Füllung). Genutzt von der
-  Kana-Heatmap **und** den Success-Rate-Kacheln der Vocabulary-Coverage —
-  gleiche Bedeutung, gleiche Farbsprache. Zusätzlich `levelColors()` /
-  `levelColor()`: **ordinale** 5-Stufen-Skala für die Level 1–5 (eigene
-  Stufen, weil ordinal ≥2:1 zur Surface halten muss — ein dünnes Segment im
-  Stapelbalken darf nicht im Hintergrund verschwinden). Farben stammen aus
-  der validierten Referenzpalette des dataviz-Skills — dort validieren.
-  **Theme-aware by Parameter, nicht durch `prefers-color-scheme` beim
-  Modul-Load** (#6): `rampSteps(dark)`, `rampStep(value, dark)`,
-  `levelColors(dark)`, `levelColor(level, dark)` — jede Komponente injiziert
-  `SumiTheme` (`sumi-ui/core`) und reicht `theme.isDark()` durch, damit ein
+- `ramp.ts` — seit #8 nur noch **ordinal**: `levelColors()`/`levelColor()`,
+  die 5-Stufen-Skala für die Level 1–5 in `dictionaries.component.ts`
+  (gebraucht bis #9 den Tab auf Basis-Komponenten umstellt). Eigene Stufen,
+  weil ordinal ≥2:1 zur Surface halten muss — ein dünnes Segment im
+  Stapelbalken darf nicht im Hintergrund verschwinden; eine kontinuierliche
+  Ramp dürfte das (und genau die ist jetzt weg: die alte sequenzielle
+  Ein-Farb-Skala `rampStep`/`rampSteps` für Kana-Konfidenz und
+  Success-Rate-Kacheln ist mit `heatmap.component.ts` entfernt —
+  `sumi-matrix-heatmap`/`sumi-segmented-bar` bringen ihre Farben jetzt
+  selbst mit, aus `--sumi-seq-*` bzw. `--sumi-accent`/`--sumi-sunken`).
+  Farben stammen aus der validierten Referenzpalette des dataviz-Skills —
+  dort validieren. **Theme-aware by Parameter, nicht durch
+  `prefers-color-scheme` beim Modul-Load** (#6): `levelColors(dark)`,
+  `levelColor(level, dark)` — die Komponente injiziert `SumiTheme`
+  (`sumi-ui/core`) und reicht `theme.isDark()` durch, damit ein
   Theme-Wechsel zur Laufzeit (nicht nur beim Neuladen) sofort neu rendert.
 - Light/Dark/System kommt aus Sumi UIs Theme-Toggle (`SumiTheme`, Shell-Header,
   `localStorage['sumi-theme']`), nicht mehr aus einer eigenen
-  `prefers-color-scheme`-Media-Query. Farbtokens: Sumi UIs `--sumi-*` (siehe
-  `styles.scss`/`sumi-ui/projects/sumi-ui/styles/_tokens.scss`) plus die zwei
-  verbleibenden App-Tokens in `src/styles/app-tokens.css`
-  (`--series-1`/`--series-1-track` für Sparkline/Meter — temporär, bis #8 die
-  Stats auf Sumi-Charts umstellt).
+  `prefers-color-scheme`-Media-Query. Farbtokens kommen vollständig aus Sumi
+  UIs `--sumi-*` (siehe `styles.scss`/`sumi-ui/projects/sumi-ui/styles/_tokens.scss`)
+  — seit #8 gibt es **keine eigenen App-Tokens mehr** (`src/styles/app-tokens.css`
+  mit `--series-1`/`--series-1-track` fürs handgebaute Sparkline/Meter ist
+  mit der Migration auf `sumi-sparkline`/`sumi-segmented-bar` entfallen,
+  `styles.scss`s `@use` entsprechend verschlankt).
 
 ## Entwicklung
 

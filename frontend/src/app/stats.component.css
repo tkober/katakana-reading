@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+h2 {
+  margin: 0 0 4px;
+  font-size: 1.0625rem;
+}
+
+h3 {
+  margin: 18px 0 8px;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sumi-muted);
+}
+
+/* The first block heading opens the card body, which sumi-card already pads. */
+h3:first-of-type {
+  margin-top: 0;
+}
+
+.hint {
+  margin: 0;
+  color: var(--sumi-muted);
+  font-size: 0.875rem;
+}
+
+sumi-matrix-heatmap {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.readout {
+  margin: 14px 0 0;
+  font-size: 0.875rem;
+  color: var(--sumi-muted);
+  min-height: 1.5em;
+}
+
+.readout b {
+  color: var(--sumi-text);
+}
+
+/* Bar above its "x/y seen" label, so Group, Coverage and Success still fit
+   a 360px phone without scrolling the table sideways. The bar gets a fixed
+   width because a table cell's width is otherwise content-driven, which the
+   bar's own ResizeObserver would chase. */
+.coverage-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.coverage-cell sumi-segmented-bar {
+  width: 100px;
+}
+
+.coverage-text {
+  color: var(--sumi-muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.loading {
+  margin: 0;
+  color: var(--sumi-muted);
+}

@@ -1,0 +1,135 @@
+<sumi-page title="Stats">
+  @if (stats(); as s) {
+    <sumi-stat-grid>
+      <sumi-stat-tile [value]="s.level" label="Level" [hint]="levelHint()" />
+      <sumi-stat-tile [value]="eloValue()" label="Elo" [hint]="eloHint()" />
+      <sumi-stat-tile [value]="accuracyValue()" label="Accuracy" [hint]="accuracyHint()" />
+      <sumi-stat-tile [value]="speedValue()" label="Reading speed" [hint]="speedHint()" />
+      <sumi-stat-tile [value]="s.current_streak" label="Streak" [hint]="streakHint()" />
+    </sumi-stat-grid>
+
+    @if (s.total_attempts === 0) {
+      <sumi-empty-state title="Nothing practised yet" companion="koi">
+        The numbers show up once you read a few words.
+      </sumi-empty-state>
+    } @else {
+      <sumi-card>
+        <div sumiCardHeader>
+          <h2>Elo</h2>
+          <p class="hint">
+            Your rating over the last {{ s.elo_history.length }} answers — currently
+            {{ eloValue() }}, level {{ s.level }}.
+          </p>
+        </div>
+        @if (s.elo_history.length >= 2) {
+          <sumi-sparkline
+            [ariaLabel]="'Elo rating over the last ' + s.elo_history.length + ' answers'"
+            [points]="s.elo_history"
+            [value]="eloValue()"
+            [delta]="eloDelta()"
+            [table]="true"
+          />
+        }
+      </sumi-card>
+
+      @if (weakestRows().length > 0) {
+        <sumi-card>
+          <div sumiCardHeader>
+            <h2>Your weakest kana</h2>
+            <p class="hint">Practice now favors words containing these kana.</p>
+          </div>
+          <sumi-data-table [columns]="weakestColumns" [rows]="weakestRows()">
+            <ng-template sumiTableCell="kana" let-row>
+              <span lang="ja">{{ row.kana }}</span>
+            </ng-template>
+          </sumi-data-table>
+        </sumi-card>
+      }
+
+      <sumi-card>
+        <div sumiCardHeader>
+          <h2>Vocabulary coverage</h2>
+          <p class="hint">
+            Bar = share of words seen at least once, success = share of correct answers in that
+            group.
+          </p>
+        </div>
+        <h3>By level</h3>
+        <sumi-data-table [columns]="coverageColumns" [rows]="levelCoverageRows()">
+          <ng-template sumiTableCell="coverage" let-row>
+            <div class="coverage-cell">
+              <sumi-segmented-bar [ariaLabel]="row.ariaLabel" [segments]="row.segments" height="sm" />
+              <span class="coverage-text">{{ row.seenLabel }}</span>
+            </div>
+          </ng-template>
+        </sumi-data-table>
+        <h3>By dictionary</h3>
+        <sumi-data-table [columns]="coverageColumns" [rows]="sourceCoverageRows()">
+          <ng-template sumiTableCell="coverage" let-row>
+            <div class="coverage-cell">
+              <sumi-segmented-bar [ariaLabel]="row.ariaLabel" [segments]="row.segments" height="sm" />
+              <span class="coverage-text">{{ row.seenLabel }}</span>
+            </div>
+          </ng-template>
+        </sumi-data-table>
+      </sumi-card>
+
+      <sumi-card>
+        <div sumiCardHeader>
+          <h2>Kana confidence</h2>
+          <!-- Not "darker": the ramp is the library's accent-derived
+               --sumi-seq-* scale, not a reversible app token anymore. See
+               CLAUDE.md's Stats section. "Stronger" holds in both themes. -->
+          <p class="hint">
+            Stronger colour = more confident. Hatched cells were never practised.
+          </p>
+        </div>
+        @for (matrix of matrices(); track matrix.id) {
+          <h3>{{ matrix.title }}</h3>
+          <sumi-matrix-heatmap
+            [ariaLabel]="matrix.ariaLabel"
+            [rows]="matrix.rows"
+            [columns]="matrix.columns"
+            [cells]="matrix.cells"
+            [domain]="[0, 1]"
+            [format]="toPercent"
+            cellLang="ja"
+            [showValues]="true"
+            [table]="true"
+            noDataLabel="Not practised yet"
+            [selectable]="true"
+            [selected]="selectedCellFor(matrix.id)"
+            (cellSelect)="onSelect(matrix, $event)"
+          />
+        }
+        <p class="readout">
+          @if (selected(); as cell) {
+            <b lang="ja">{{ cell.kana }}</b>
+            @if (cell.value === null) {
+              — {{ cell.detail ?? 'not practised yet' }}
+            } @else {
+              — {{ toPercent(cell.value) }} confident · {{ cell.detail }}
+            }
+          } @else {
+            Pick a cell to see its numbers.
+          }
+        </p>
+      </sumi-card>
+
+      @if (s.recent.length > 0) {
+        <sumi-card>
+          <div sumiCardHeader>
+            <h2>Recent answers</h2>
+          </div>
+          <sumi-data-table [columns]="recentColumns" [rows]="recentRows()">
+            <ng-template sumiTableCell="word" let-row>
+              <span lang="ja">{{ row.word }}</span>
+            </ng-template>
+          </sumi-data-table>
+        </sumi-card>
+      }
+    }
+  } @else {
+    <p class="loading">Loading stats…</p>
+  }
+</sumi-page>

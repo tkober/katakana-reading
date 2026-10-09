@@ -154,8 +154,9 @@ vier Japanisch-Apps, als Git-Submodule unter `frontend/sumi-ui` eingebunden
 `tsconfig`-`paths`-Mapping `sumi-ui/* → ./sumi-ui/projects/sumi-ui/src/*`
 direkt mit). Ein frischer Checkout ohne `--recurse-submodules` braucht einmal
 `git submodule update --init`, sonst ist `frontend/sumi-ui` leer und der Build
-bricht beim Auflösen von `sumi-ui/...`-Imports ab. **Nie in `sumi-ui`
-editieren** — fehlt dort etwas, zuerst ein Issue im sumi-ui-Repo.
+bricht beim Auflösen von `sumi-ui/...`-Imports ab. **Nie im Submodule
+editieren und Lücken nie lokal umgehen** — fehlt in Sumi UI etwas, Issue +
+PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
 
 - `app.component.ts`/`.html`/`.css` — `sumi-app-shell` mit Marke (ア,
   „Katakana Trainer"), Tab-Navigation (Practice/Stats/Dictionaries/Settings),

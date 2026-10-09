@@ -296,12 +296,12 @@ import { TimeBudget } from './models';
         color: var(--sumi-text);
       }
       .btn-danger {
-        background: var(--sumi-wrong);
-        border: none;
-        /* Same pairing sumi-ui's own [sumiButton] danger variant uses on
-           hover (styles/components/_button.scss) — --sumi-wrong is not
-           guaranteed dark enough for a fixed white, e.g. in dark mode. */
-        color: var(--sumi-on-accent);
+        /* Outlined like sumiButton's danger variant at rest: text on a red
+           fill needs --sumi-on-wrong (tkober/sumi-ui#44), and the whole
+           button moves onto sumiButton in #9 anyway. */
+        background: transparent;
+        border: 1px solid var(--sumi-wrong);
+        color: var(--sumi-wrong);
       }
       .btn-danger:disabled {
         opacity: 0.45;

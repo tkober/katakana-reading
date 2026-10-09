@@ -129,6 +129,14 @@
         </sumi-card>
       }
     }
+  } @else if (failed()) {
+    <!-- No pattern: the page title above already carries the band (T4). -->
+    <sumi-error-state title="Can't reach the server" companion="koi" pattern="none">
+      Your progress is safe. Check the connection and try again.
+      <button sumiErrorAction type="button" sumiButton variant="secondary" (click)="retry()">
+        Try again
+      </button>
+    </sumi-error-state>
   } @else {
     <p class="loading">Loading stats…</p>
   }

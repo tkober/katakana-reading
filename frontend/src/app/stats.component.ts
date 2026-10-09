@@ -8,7 +8,8 @@ import {
   type SumiTableColumn,
   type SumiTableRow,
 } from 'sumi-ui/charts';
-import { SumiCard, SumiEmptyState, SumiPage } from 'sumi-ui/layout';
+import { SumiCard, SumiEmptyState, SumiErrorState, SumiPage } from 'sumi-ui/layout';
+import { SumiButtonDirective } from 'sumi-ui/forms';
 
 import { ApiService } from './api.service';
 import { CoverageRow, KanaStat, Stats } from './models';
@@ -187,7 +188,7 @@ const RECENT_COLUMNS: SumiTableColumn[] = [
 
 @Component({
   selector: 'app-stats',
-  imports: [SumiCard, SumiEmptyState, SumiPage, ...SUMI_CHARTS],
+  imports: [SumiCard, SumiEmptyState, SumiErrorState, SumiButtonDirective, SumiPage, ...SUMI_CHARTS],
   providers: [DatePipe],
   templateUrl: './stats.component.html',
   styleUrl: './stats.component.css',
@@ -198,6 +199,9 @@ export class StatsComponent {
 
   readonly stats = signal<Stats | null>(null);
   readonly selected = signal<Selection | null>(null);
+  /** Set when the initial `/api/stats` load fails — shows `sumi-error-state`
+   *  instead of the cards until retried. */
+  readonly failed = signal(false);
 
   protected readonly toPercent = toPercent;
   protected readonly weakestColumns = WEAKEST_COLUMNS;
@@ -305,7 +309,22 @@ export class StatsComponent {
   );
 
   constructor() {
-    this.api.stats().subscribe((s) => this.stats.set(s));
+    this.load();
+  }
+
+  retry(): void {
+    this.failed.set(false);
+    this.load();
+  }
+
+  private load(): void {
+    this.api.stats().subscribe({
+      next: (s) => {
+        this.failed.set(false);
+        this.stats.set(s);
+      },
+      error: () => this.failed.set(true),
+    });
   }
 
   protected selectedCellFor(matrix: MatrixId): { row: string; column: string } | null {

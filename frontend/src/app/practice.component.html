@@ -1,13 +1,22 @@
 <sumi-page width="narrow" [inkEnd]="false">
   @switch (state()) {
     @case ('idle') {
-      <sumi-session-gate
-        title="Ready to read?"
-        text="Words are picked to match your level and to target the kana you struggle with. The clock only starts once the first word is on screen — take your time until then."
-        actionLabel="Start session"
-        companion="koi"
-        (start)="startSession()"
-      />
+      @if (loadFailed()) {
+        <sumi-error-state title="Can't reach the server" companion="koi">
+          Your progress is safe. Check the connection and try again.
+          <button sumiErrorAction type="button" sumiButton variant="secondary" (click)="startSession()">
+            Try again
+          </button>
+        </sumi-error-state>
+      } @else {
+        <sumi-session-gate
+          title="Ready to read?"
+          text="Words are picked to match your level and to target the kana you struggle with. The clock only starts once the first word is on screen — take your time until then."
+          actionLabel="Start session"
+          companion="koi"
+          (start)="startSession()"
+        />
+      }
     }
 
     @case ('ended') {

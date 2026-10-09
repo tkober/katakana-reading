@@ -11,7 +11,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { SUMI_KEYS, SumiHotkeys, injectHotkey } from 'sumi-ui/core';
-import { SumiBadge, SumiFocusModeDirective, SumiHanko, SumiPage, SumiShellFocusActionsDirective } from 'sumi-ui/layout';
+import {
+  SumiBadge,
+  SumiErrorState,
+  SumiFocusModeDirective,
+  SumiHanko,
+  SumiPage,
+  SumiShellFocusActionsDirective,
+} from 'sumi-ui/layout';
 import { SumiButtonDirective } from 'sumi-ui/forms';
 import { SUMI_PRACTICE, SumiAnswerField, type SumiVerdict } from 'sumi-ui/practice';
 
@@ -30,6 +37,7 @@ const TICK_MS = 100;
     DecimalPipe,
     SumiBadge,
     SumiButtonDirective,
+    SumiErrorState,
     SumiFocusModeDirective,
     SumiHanko,
     SumiPage,
@@ -47,6 +55,9 @@ export class PracticeComponent {
   private answerRow = viewChild<ElementRef<HTMLElement>>('answerRow');
 
   readonly state = signal<SessionState>('idle');
+  /** Set when the first `/api/word/next` of a session fails — shows
+   *  `sumi-error-state` instead of the gate until the user retries. */
+  readonly loadFailed = signal(false);
   readonly word = signal<NextWord | null>(null);
   readonly result = signal<AnswerResult | null>(null);
   /** Whether the current `result` came from Alt+H rather than a typed
@@ -172,10 +183,11 @@ export class PracticeComponent {
     this.sessionElo.set(0);
     this.sessionTimeMs.set(0);
     this.detailsOpen.set(true);
+    this.loadFailed.set(false);
     this.startLevel = this.api.profile()?.level ?? null;
     this.sessionStartedAt = Date.now();
     this.state.set('active');
-    this.loadNext();
+    this.loadNext(true);
   }
 
   endSession(): void {
@@ -242,7 +254,11 @@ export class PracticeComponent {
     });
   }
 
-  private loadNext(): void {
+  /** `isFirst` marks the very first word of a session (called from
+   *  `startSession()`): only there does a failure fall back to the gate's
+   *  `sumi-error-state` (T6) — a mid-session failure (a later `onNext()`)
+   *  just leaves the previous word/verdict on screen, as before. */
+  private loadNext(isFirst = false): void {
     if (this.loading) {
       return;
     }
@@ -254,6 +270,7 @@ export class PracticeComponent {
     this.api.nextWord().subscribe({
       next: (w) => {
         this.loading = false;
+        this.loadFailed.set(false);
         // A session ended while this request was in flight must stay ended.
         if (this.state() !== 'active') {
           return;
@@ -273,6 +290,10 @@ export class PracticeComponent {
       },
       error: () => {
         this.loading = false;
+        if (isFirst) {
+          this.loadFailed.set(true);
+          this.state.set('idle');
+        }
       },
     });
   }

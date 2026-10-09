@@ -1,0 +1,144 @@
+:host {
+  display: block;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--sumi-muted);
+  font-size: 0.875rem;
+}
+
+.muted {
+  color: var(--sumi-muted);
+}
+
+/* One card per dictionary — a grid so narrow phones get a single column
+   without any extra media query. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sumi-space-4);
+  margin-bottom: var(--sumi-space-4);
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sumi-space-2);
+  flex-wrap: wrap;
+}
+
+sumi-segmented-bar {
+  display: block;
+  margin-top: var(--sumi-space-3);
+}
+
+.facts {
+  margin: var(--sumi-space-3) 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sumi-space-3);
+  font-size: 0.8125rem;
+}
+
+.facts dt {
+  color: var(--sumi-text-2);
+}
+
+.facts dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-actions {
+  display: flex;
+  gap: var(--sumi-space-3);
+  margin-top: var(--sumi-space-3);
+  padding-top: var(--sumi-space-3);
+  border-top: 1px solid var(--sumi-line);
+}
+
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sumi-space-3);
+}
+
+.file-name {
+  font-size: 0.8125rem;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warn {
+  color: var(--sumi-wrong);
+  font-size: 0.8125rem;
+  margin: var(--sumi-space-3) 0 0;
+}
+
+.success {
+  color: var(--sumi-correct);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin: var(--sumi-space-3) 0 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sumi-space-3);
+  margin-bottom: var(--sumi-space-3);
+  align-items: flex-end;
+}
+
+.filters .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.filters .field.search {
+  flex: 1;
+  min-width: 200px;
+}
+
+.filters .field span {
+  font-size: 0.75rem;
+  color: var(--sumi-muted);
+}
+
+.result-note {
+  font-size: 0.75rem;
+  color: var(--sumi-muted);
+  margin: 0 0 var(--sumi-space-2);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sumi-space-3);
+  margin-top: var(--sumi-space-3);
+  font-size: 0.8125rem;
+}
+
+.loading {
+  margin: 0;
+  color: var(--sumi-muted);
+}

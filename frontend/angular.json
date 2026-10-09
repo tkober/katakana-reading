@@ -16,7 +16,17 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [],
-            "styles": ["src/styles.css"]
+            "styles": [
+              "src/styles.scss",
+              {
+                "input": "sumi-ui/projects/sumi-ui/styles/sumi-fonts.scss",
+                "bundleName": "sumi-fonts",
+                "inject": false
+              }
+            ],
+            "stylePreprocessorOptions": {
+              "includePaths": ["."]
+            }
           },
           "configurations": {
             "production": {

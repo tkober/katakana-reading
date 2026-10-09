@@ -1,18 +1,21 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { SumiTheme } from 'sumi-ui/core';
+import { SumiPage } from 'sumi-ui/layout';
 
 import { ApiService } from './api.service';
 import { DictionaryInfo, WordRow } from './models';
-import { LEVEL_COLORS, levelColor } from './ramp';
+import { levelColor, levelColors } from './ramp';
 
 const PAGE_SIZE = 50;
 
 @Component({
   selector: 'app-dictionaries',
-  imports: [DecimalPipe, FormsModule],
+  imports: [DecimalPipe, FormsModule, SumiPage],
   template: `
+    <sumi-page title="Dictionaries">
     @if (dicts(); as list) {
       <section class="dicts">
         <div class="cards">
@@ -97,7 +100,7 @@ const PAGE_SIZE = 50;
 
         <div class="legend">
           <span>easier</span>
-          @for (c of levelColors; track $index) {
+          @for (c of levelLegendColors(); track $index) {
             <span class="swatch" [style.background]="c"></span>
           }
           <span>harder</span>
@@ -199,7 +202,7 @@ const PAGE_SIZE = 50;
                 <tbody>
                   @for (row of w.words; track row.katakana) {
                     <tr>
-                      <td class="kana-font word">{{ row.katakana }}</td>
+                      <td class="word" lang="ja">{{ row.katakana }}</td>
                       <td>{{ row.romaji }}</td>
                       <td class="meaning">{{ row.meaning }}</td>
                       <td>
@@ -242,6 +245,7 @@ const PAGE_SIZE = 50;
     } @else {
       <p class="loading">Loading dictionaries…</p>
     }
+    </sumi-page>
   `,
   styles: [
     `
@@ -256,8 +260,8 @@ const PAGE_SIZE = 50;
         gap: 12px;
       }
       .card {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 12px;
         padding: 14px 16px;
       }
@@ -273,7 +277,7 @@ const PAGE_SIZE = 50;
         font-size: 16px;
       }
       .card-total {
-        color: var(--muted);
+        color: var(--sumi-muted);
         font-size: 12px;
         font-variant-numeric: tabular-nums;
       }
@@ -283,21 +287,21 @@ const PAGE_SIZE = 50;
         margin-right: auto;
         padding: 1px 7px;
         border-radius: 999px;
-        border: 1px solid var(--grid);
-        color: var(--muted);
+        border: 1px solid var(--sumi-line);
+        color: var(--sumi-muted);
         font-size: 11px;
         white-space: nowrap;
       }
       .chip.uploaded {
-        border-color: var(--accent);
-        color: var(--ink-2);
+        border-color: var(--sumi-accent-ink);
+        color: var(--sumi-text-2);
       }
       .card-actions {
         display: flex;
         gap: 12px;
         margin-top: 12px;
         padding-top: 10px;
-        border-top: 1px solid var(--grid);
+        border-top: 1px solid var(--sumi-line);
       }
       .link {
         background: none;
@@ -305,13 +309,13 @@ const PAGE_SIZE = 50;
         padding: 0;
         font: inherit;
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         text-decoration: underline;
         text-underline-offset: 2px;
         cursor: pointer;
       }
       .link.danger {
-        color: var(--critical);
+        color: var(--sumi-wrong);
       }
       .stack {
         display: flex;
@@ -340,7 +344,7 @@ const PAGE_SIZE = 50;
       }
       .level-name {
         font-size: 10px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .level-count {
         font-size: 14px;
@@ -348,7 +352,7 @@ const PAGE_SIZE = 50;
         font-variant-numeric: tabular-nums;
       }
       .level-col.zero .level-count {
-        color: var(--muted);
+        color: var(--sumi-muted);
         font-weight: 400;
       }
       .facts {
@@ -364,7 +368,7 @@ const PAGE_SIZE = 50;
         font-size: 13px;
       }
       .facts dt {
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .facts dd {
         margin: 0;
@@ -372,14 +376,14 @@ const PAGE_SIZE = 50;
         font-variant-numeric: tabular-nums;
       }
       .muted {
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .legend {
         display: flex;
         align-items: center;
         gap: 4px;
         font-size: 12px;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .legend .swatch {
         width: 18px;
@@ -396,8 +400,8 @@ const PAGE_SIZE = 50;
         margin-left: 14px;
       }
       .panel {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 12px;
         padding: 18px 20px;
       }
@@ -407,7 +411,7 @@ const PAGE_SIZE = 50;
       }
       .panel-note {
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         margin: -6px 0 14px;
         max-width: 70ch;
       }
@@ -429,9 +433,9 @@ const PAGE_SIZE = 50;
         font-size: 13px;
         padding: 7px 10px;
         border-radius: 8px;
-        border: 1px solid var(--grid);
-        background: var(--page);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        background: var(--sumi-bg);
+        color: var(--sumi-text);
         width: 170px;
       }
       .btn-outline,
@@ -445,25 +449,25 @@ const PAGE_SIZE = 50;
       }
       .btn-outline {
         background: transparent;
-        border: 1px solid var(--grid);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        color: var(--sumi-text);
       }
       .btn-primary {
-        background: var(--accent);
+        background: var(--sumi-accent);
         border: none;
-        color: var(--accent-ink);
+        color: var(--sumi-on-accent);
       }
       .btn-primary:disabled {
         opacity: 0.45;
         cursor: not-allowed;
       }
       .warn {
-        color: var(--critical);
+        color: var(--sumi-wrong);
         font-size: 13px;
         margin: 12px 0 0;
       }
       .success {
-        color: var(--good-text);
+        color: var(--sumi-correct);
         font-size: 13px;
         font-weight: 600;
         margin: 12px 0 0;
@@ -480,9 +484,9 @@ const PAGE_SIZE = 50;
         font-size: 13px;
         padding: 7px 10px;
         border-radius: 8px;
-        border: 1px solid var(--grid);
-        background: var(--page);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        background: var(--sumi-bg);
+        color: var(--sumi-text);
       }
       .filters input {
         flex: 1;
@@ -490,7 +494,7 @@ const PAGE_SIZE = 50;
       }
       .result-note {
         font-size: 12px;
-        color: var(--muted);
+        color: var(--sumi-muted);
         margin: 0 0 8px;
       }
       .table-wrap {
@@ -504,15 +508,15 @@ const PAGE_SIZE = 50;
       th {
         text-align: left;
         font-weight: 600;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         font-size: 12px;
         padding: 6px 10px;
-        border-bottom: 1px solid var(--grid);
+        border-bottom: 1px solid var(--sumi-line);
         white-space: nowrap;
       }
       td {
         padding: 6px 10px;
-        border-bottom: 1px solid var(--grid);
+        border-bottom: 1px solid var(--sumi-line);
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
       }
@@ -522,7 +526,7 @@ const PAGE_SIZE = 50;
       td.meaning {
         white-space: normal;
         min-width: 160px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       td.empty {
         text-align: center;
@@ -546,9 +550,9 @@ const PAGE_SIZE = 50;
       .pager button {
         padding: 6px 14px;
         border-radius: 8px;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--sumi-line);
         background: transparent;
-        color: var(--ink);
+        color: var(--sumi-text);
         cursor: pointer;
       }
       .pager button:disabled {
@@ -556,7 +560,7 @@ const PAGE_SIZE = 50;
         cursor: not-allowed;
       }
       .loading {
-        color: var(--muted);
+        color: var(--sumi-muted);
         text-align: center;
       }
     `,
@@ -564,11 +568,12 @@ const PAGE_SIZE = 50;
 })
 export class DictionariesComponent implements OnInit {
   private api = inject(ApiService);
+  private readonly theme = inject(SumiTheme);
 
   readonly dicts = signal<DictionaryInfo[] | null>(null);
   readonly words = signal<{ total: number; words: WordRow[] } | null>(null);
   readonly offset = signal(0);
-  readonly levelColors = LEVEL_COLORS;
+  readonly levelLegendColors = computed(() => levelColors(this.theme.isDark()));
   readonly pageSize = PAGE_SIZE;
   readonly Math = Math;
 
@@ -681,7 +686,7 @@ export class DictionariesComponent implements OnInit {
   }
 
   color(level: number): string {
-    return levelColor(level);
+    return levelColor(level, this.theme.isDark());
   }
 
   levelTooltip(d: DictionaryInfo): string {

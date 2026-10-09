@@ -1,0 +1,14 @@
+/* App-specific tokens that Sumi UI does not provide. Everything else now
+   comes from sumi-ui's own `--sumi-*` tokens (see styles.scss). Each token
+   here is defined exactly once with light-dark(), same pattern as
+   sumi-ui's own _tokens.scss.
+
+   Temporary: the Elo sparkline and coverage meters (stats.component.ts)
+   still draw their own single-series line/meter instead of a Sumi chart —
+   that migration is #8. Until then they need a series colour of their
+   own, distinct from the app's accent (which colors buttons/fills, not
+   data series). */
+:root {
+  --series-1: light-dark(#2a78d6, #3987e5);
+  --series-1-track: light-dark(#cde2fb, #104281);
+}

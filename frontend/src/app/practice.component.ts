@@ -9,6 +9,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { SumiPage } from 'sumi-ui/layout';
 
 import { ApiService } from './api.service';
 import { AnswerResult, NextWord } from './models';
@@ -17,8 +18,9 @@ type SessionState = 'idle' | 'active' | 'ended';
 
 @Component({
   selector: 'app-practice',
-  imports: [DecimalPipe, FormsModule],
+  imports: [DecimalPipe, FormsModule, SumiPage],
   template: `
+    <sumi-page [inkEnd]="false">
     @switch (state()) {
       @case ('idle') {
         <section class="gate">
@@ -88,10 +90,10 @@ type SessionState = 'idle' | 'active' | 'ended';
                 <span>{{ w.kana_count }} kana</span>
               </div>
               @if (result(); as r) {
-                <div class="tokens kana-font">
+                <div class="tokens">
                   @for (t of r.tokens; track $index) {
                     <div class="token" [class.ok]="t.correct" [class.bad]="!t.correct">
-                      <div class="token-kana">{{ t.kana }}</div>
+                      <div class="token-kana" lang="ja">{{ t.kana }}</div>
                       <div class="token-romaji">{{ t.expected }}</div>
                       <div class="token-mark">{{ t.correct ? '✓' : '✕' }}</div>
                     </div>
@@ -105,7 +107,7 @@ type SessionState = 'idle' | 'active' | 'ended';
                   <span class="source-chip">{{ r.source }}</span>
                 </div>
               } @else {
-                <div class="word kana-font">{{ w.katakana }}</div>
+                <div class="word" lang="ja">{{ w.katakana }}</div>
               }
             </div>
 
@@ -183,12 +185,13 @@ type SessionState = 'idle' | 'active' | 'ended';
         }
       }
     }
+    </sumi-page>
   `,
   styles: [
     `
       .gate {
-        background: var(--surface);
-        border: 1px solid var(--grid);
+        background: var(--sumi-surface);
+        border: 1px solid var(--sumi-line);
         border-radius: 14px;
         padding: 32px 28px;
         text-align: center;
@@ -198,7 +201,7 @@ type SessionState = 'idle' | 'active' | 'ended';
         font-size: 20px;
       }
       .gate p {
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         font-size: 14px;
         max-width: 44ch;
         margin: 0 auto 20px;
@@ -207,8 +210,8 @@ type SessionState = 'idle' | 'active' | 'ended';
         padding: 12px 26px;
         border-radius: 10px;
         border: none;
-        background: var(--accent);
-        color: var(--accent-ink);
+        background: var(--sumi-accent);
+        color: var(--sumi-on-accent);
         font-weight: 650;
         font-size: 15px;
         cursor: pointer;
@@ -224,12 +227,12 @@ type SessionState = 'idle' | 'active' | 'ended';
         flex-direction: column;
         gap: 2px;
         padding: 12px 10px;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--sumi-line);
         border-radius: 10px;
       }
       .sum-label {
         font-size: 12px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .sum-value {
         font-size: 22px;
@@ -238,13 +241,13 @@ type SessionState = 'idle' | 'active' | 'ended';
       .sum-value small {
         font-size: 12px;
         font-weight: 400;
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .sum-value.up {
-        color: var(--good-text);
+        color: var(--sumi-correct);
       }
       .sum-value.down {
-        color: var(--critical);
+        color: var(--sumi-wrong);
       }
       .practice {
         display: flex;
@@ -258,24 +261,24 @@ type SessionState = 'idle' | 'active' | 'ended';
         flex-wrap: wrap;
         gap: 8px 12px;
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .ghost {
         background: transparent;
-        border: 1px solid var(--grid);
+        border: 1px solid var(--sumi-line);
         border-radius: 8px;
         padding: 5px 12px;
         font-size: 13px;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
         cursor: pointer;
       }
       .ghost:hover {
-        color: var(--critical);
-        border-color: var(--critical);
+        color: var(--sumi-wrong);
+        border-color: var(--sumi-wrong);
       }
       .word-card {
-        background: var(--accent);
-        color: var(--accent-ink);
+        background: var(--sumi-accent);
+        color: var(--sumi-on-accent);
         border-radius: 14px;
         padding: 28px 24px 36px;
         text-align: center;
@@ -304,14 +307,17 @@ type SessionState = 'idle' | 'active' | 'ended';
         min-width: 52px;
         padding: 8px 10px 6px;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.14);
+        /* Tinted from the word-card's own text colour (not a fixed white),
+           so the wash stays subtle instead of flattening out on a light
+           accent like yamabuki (dark on-accent text). */
+        background: color-mix(in oklab, var(--sumi-on-accent) 14%, transparent);
       }
       .token.ok {
-        outline: 2px solid var(--good);
+        outline: 2px solid var(--sumi-correct);
       }
       .token.bad {
-        outline: 2px solid var(--critical);
-        background: rgba(0, 0, 0, 0.25);
+        outline: 2px solid var(--sumi-wrong);
+        background: color-mix(in oklab, var(--sumi-wrong) 30%, transparent);
       }
       .token-kana {
         font-size: 30px;
@@ -326,11 +332,12 @@ type SessionState = 'idle' | 'active' | 'ended';
         font-size: 12px;
         font-weight: 700;
       }
-      .token.ok .token-mark {
-        color: #b7f7b7;
-      }
+      .token.ok .token-mark,
       .token.bad .token-mark {
-        color: #ffc6c6;
+        /* The outline already carries the correct/wrong colour; the mark
+           itself just needs to read on the accent fill, whichever text
+           colour that resolves to. */
+        color: var(--sumi-on-accent);
       }
       .reading {
         margin-top: 16px;
@@ -353,7 +360,7 @@ type SessionState = 'idle' | 'active' | 'ended';
       }
       .source-chip {
         display: inline-block;
-        border: 1px solid rgba(255, 255, 255, 0.35);
+        border: 1px solid color-mix(in oklab, var(--sumi-on-accent) 35%, transparent);
         border-radius: 999px;
         padding: 2px 12px;
         font-size: 12px;
@@ -369,15 +376,15 @@ type SessionState = 'idle' | 'active' | 'ended';
         font-size: 14px;
       }
       .verdict-ok {
-        background: var(--good-wash);
-        color: var(--good-text);
+        background: var(--sumi-correct-soft);
+        color: var(--sumi-correct);
       }
       .verdict-bad {
-        background: var(--critical-wash);
-        color: var(--critical);
+        background: var(--sumi-wrong-soft);
+        color: var(--sumi-wrong);
       }
       .your-answer {
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .answer-row {
         display: flex;
@@ -391,14 +398,14 @@ type SessionState = 'idle' | 'active' | 'ended';
         font-size: 20px;
         padding: 12px 16px;
         border-radius: 10px;
-        border: 1px solid var(--grid);
-        background: var(--surface);
-        color: var(--ink);
+        border: 1px solid var(--sumi-line);
+        background: var(--sumi-surface);
+        color: var(--sumi-text);
         text-align: center;
         letter-spacing: 0.04em;
       }
       .answer-input:focus {
-        outline: 2px solid var(--accent);
+        outline: 2px solid var(--sumi-accent-ink);
         border-color: transparent;
       }
       .submit-btn {
@@ -407,8 +414,8 @@ type SessionState = 'idle' | 'active' | 'ended';
         padding: 12px 22px;
         border-radius: 10px;
         border: none;
-        background: var(--accent);
-        color: var(--accent-ink);
+        background: var(--sumi-accent);
+        color: var(--sumi-on-accent);
         font-weight: 600;
         cursor: pointer;
       }
@@ -436,10 +443,10 @@ type SessionState = 'idle' | 'active' | 'ended';
         stroke-width: 4;
       }
       .ring-track {
-        stroke: var(--grid);
+        stroke: var(--sumi-line);
       }
       .ring-value {
-        stroke: var(--accent);
+        stroke: var(--sumi-accent-ink);
         stroke-linecap: round;
         /* Matches the 100ms ticker, so the ring glides instead of stepping. */
         transition:
@@ -447,7 +454,7 @@ type SessionState = 'idle' | 'active' | 'ended';
           stroke 0.2s ease;
       }
       .countdown.low .ring-value {
-        stroke: var(--critical);
+        stroke: var(--sumi-wrong);
       }
       .countdown.overtime .ring-value {
         stroke: transparent;
@@ -461,21 +468,21 @@ type SessionState = 'idle' | 'active' | 'ended';
         font-size: 13px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
-        color: var(--ink-2);
+        color: var(--sumi-text-2);
       }
       .countdown.low .ring-num,
       .countdown.overtime .ring-num {
-        color: var(--critical);
+        color: var(--sumi-wrong);
       }
       .hint {
-        color: var(--muted);
+        color: var(--sumi-muted);
         font-size: 13px;
       }
       .muted {
-        color: var(--muted);
+        color: var(--sumi-muted);
       }
       .loading {
-        color: var(--muted);
+        color: var(--sumi-muted);
         text-align: center;
       }
     `,

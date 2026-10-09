@@ -1,0 +1,168 @@
+<sumi-page title="Settings">
+  @if (budget(); as b) {
+    <sumi-card>
+      <div sumiCardHeader>
+        <h2>Reading time budget</h2>
+        <p class="hint">
+          How long a word may take before it counts as slow. The clock covers reading
+          <em>and</em> typing, so a touchscreen keyboard needs a bigger budget than a real one.
+          Being slow never costs Elo — it only earns less than a fast answer.
+        </p>
+      </div>
+
+      <div class="budget">
+        <label class="field">
+          <span class="field-label">Base per word</span>
+          <span class="field-row">
+            <input
+              type="range"
+              sumiSlider
+              [min]="b.bounds.time_base_ms[0]"
+              [max]="5000"
+              step="100"
+              [ngModel]="baseMs()"
+              (ngModelChange)="baseMs.set(+$event)"
+            />
+            <output>{{ baseMs() / 1000 | number: '1.1-1' }} s</output>
+          </span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Per kana</span>
+          <span class="field-row">
+            <input
+              type="range"
+              sumiSlider
+              [min]="b.bounds.time_per_kana_ms[0]"
+              [max]="2500"
+              step="50"
+              [ngModel]="perKanaMs()"
+              (ngModelChange)="perKanaMs.set(+$event)"
+            />
+            <output>{{ perKanaMs() / 1000 | number: '1.2-2' }} s</output>
+          </span>
+        </label>
+      </div>
+
+      <p class="formula">
+        Target = {{ baseMs() / 1000 | number: '1.1-1' }} s +
+        {{ perKanaMs() / 1000 | number: '1.2-2' }} s × kana
+      </p>
+
+      <div class="examples">
+        @for (ex of preview(); track ex.kana) {
+          <div class="example">
+            <span class="ex-kana">{{ ex.kana }} kana</span>
+            <span class="ex-time">{{ ex.ms / 1000 | number: '1.1-1' }} s</span>
+            <span class="ex-word" lang="ja">{{ ex.sample }}</span>
+          </div>
+        }
+      </div>
+
+      <div class="actions">
+        @if (dirty()) {
+          <button type="button" sumiButton variant="primary" [disabled]="saving()" (click)="save()">
+            {{ saving() ? 'Saving…' : 'Save' }}
+          </button>
+          <button type="button" sumiButton variant="ghost" (click)="revert()">Revert</button>
+        } @else {
+          <span class="saved-note">Saved</span>
+        }
+        @if (!atDefaults()) {
+          <button type="button" sumiButton variant="ghost" (click)="useDefaults()">
+            Back to defaults
+          </button>
+        }
+      </div>
+      @if (budgetError()) {
+        <p class="warn">{{ budgetError() }}</p>
+      }
+    </sumi-card>
+
+    <sumi-card class="danger">
+      <div sumiCardHeader>
+        <h2>Reset progress</h2>
+        <p class="hint">
+          Deletes <strong>all</strong> historical data: Elo &amp; level, kana statistics, answer
+          history and the calibrated word difficulties. The dictionary itself is kept.
+        </p>
+      </div>
+
+      @if (done()) {
+        <p class="success">All data has been reset. Good luck on the fresh start!</p>
+      } @else {
+        @switch (step()) {
+          @case (0) {
+            <button type="button" sumiButton variant="ghost" (click)="step.set(1)">
+              Reset progress…
+            </button>
+          }
+          @case (1) {
+            <p class="warn">Are you sure? This action <strong>cannot</strong> be undone.</p>
+            <div class="actions">
+              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">
+                Cancel
+              </button>
+              <button type="button" sumiButton variant="danger" (click)="step.set(2)">
+                Yes, I'm sure
+              </button>
+            </div>
+          }
+          @case (2) {
+            <p class="warn">
+              Final confirmation: type <code>RESET</code> into the field to delete everything for
+              good.
+            </p>
+            <div class="actions">
+              <input
+                sumiInput
+                class="confirm-input"
+                type="text"
+                [(ngModel)]="confirmText"
+                placeholder="RESET"
+                autocomplete="off"
+              />
+              <button type="button" sumiButton variant="ghost" (click)="cancelReset()">
+                Cancel
+              </button>
+              <button
+                type="button"
+                sumiButton
+                variant="danger"
+                [disabled]="confirmText !== 'RESET' || busy()"
+                (click)="reset()"
+              >
+                Delete permanently
+              </button>
+            </div>
+          }
+        }
+      }
+      @if (error()) {
+        <p class="warn">{{ error() }}</p>
+      }
+    </sumi-card>
+
+    <sumi-card>
+      <div sumiCardHeader>
+        <h2>About this app</h2>
+      </div>
+      <p class="about">
+        Adaptive katakana reading practice: word selection follows your Elo, regularly probes your
+        limit and favors words containing kana you still struggle with. Hepburn and Kunrei romaji
+        are both accepted (e.g. <code>shi</code>/<code>si</code>), long vowels as doubled vowels or
+        <code>-</code>.
+      </p>
+    </sumi-card>
+  } @else if (failed()) {
+    <!-- No pattern: the page title above already carries the band (T4). -->
+    <sumi-error-state title="Can't reach the server" companion="koi" pattern="none">
+      Your progress is safe. Check the connection and try again.
+      <button sumiErrorAction type="button" sumiButton variant="secondary" (click)="retry()">
+        Try again
+      </button>
+    </sumi-error-state>
+  } @else {
+    <p class="loading">Loading…</p>
+  }
+</sumi-page>

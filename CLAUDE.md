@@ -202,7 +202,7 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   Falsch-nicht-aufgegeben) bleibt app-spezifisch im `sumiVerdictDetails`-Slot,
   standardmäßig offen (`F` persistiert das für den Rest der Session, kein
   Reset pro Wort). `?` registriert die Seite selbst, aktiv nur mit Verdict.
-- `stats.component.ts`/`.html`/`.css` (#8) — KPI-Kacheln (`sumi-stat-grid` +
+- `stats.component.ts`/`.html`/`.css` (#8) + `stats-math.ts` (reine Matrix-Bauer, #9) — KPI-Kacheln (`sumi-stat-grid` +
   `sumi-stat-tile`, Level/Elo/Accuracy/Reading speed/Streak, die
   Zusatzzahlen als `hint`), Elo-Verlauf (`sumi-sparkline`, nur ab 2 Punkten,
   `[table]="true"`), schwächste Kana (`sumi-data-table`, nur wenn nicht
@@ -235,45 +235,70 @@ PR in `tkober/sumi-ui`, danach das Submodule auf das gemergte `main` heben.
   Readout-Zeile das ausgewählte Kana nennen kann (bei den Kombinationen ist
   die Zeile nur der Konsonant, nicht das volle Kana). Die Ramp kommt jetzt
   komplett aus der Bibliothek (`--sumi-seq-*`, aus dem Akzent abgeleitet,
-  theme-aware per CSS `light-dark()` ohne JS) — `ramp.ts`s alte
-  Konfidenz-Skala (`rampStep`/`rampSteps`) ist damit weg, siehe unten.
-- `dictionaries.component.ts` — Tab „Dictionaries": pro Wörterbuch eine Karte
-  (Level-Verteilung als gestapelter Balken mit 2px-Lücken + Zahlen darunter,
-  Wortlänge, Rating-Spanne, geübt, Erfolgsquote, Herkunfts-Chip
-  built-in/uploaded, Export-Link, bei Uploads zweistufiges Löschen)
-  + Upload-Panel (Datei wählen → JSON wird im Browser geparst, Name aus dem
-  Dateinamen vorbelegt, Fehler des Backends werden pro Eintrag angezeigt;
-  Template-Download als normaler `<a download>`) + filterbarer Wort-Browser
-  (Dictionary/Level/Suche/Sortierung, 50 pro Seite, Suche entprellt). In
-  `<sumi-page title="Dictionaries">`.
-- `settings.component.ts` — Zeitbudget (zwei Slider, Live-Vorschau an drei
-  echten Wörtern, „Saved"/Revert/„Back to defaults"; Grenzen und Defaults
-  kommen aus `/api/settings`) + mehrstufiger Reset. In
-  `<sumi-page title="Settings">`.
-- `ramp.ts` — seit #8 nur noch **ordinal**: `levelColors()`/`levelColor()`,
-  die 5-Stufen-Skala für die Level 1–5 in `dictionaries.component.ts`
-  (gebraucht bis #9 den Tab auf Basis-Komponenten umstellt). Eigene Stufen,
-  weil ordinal ≥2:1 zur Surface halten muss — ein dünnes Segment im
-  Stapelbalken darf nicht im Hintergrund verschwinden; eine kontinuierliche
-  Ramp dürfte das (und genau die ist jetzt weg: die alte sequenzielle
-  Ein-Farb-Skala `rampStep`/`rampSteps` für Kana-Konfidenz und
-  Success-Rate-Kacheln ist mit `heatmap.component.ts` entfernt —
-  `sumi-matrix-heatmap`/`sumi-segmented-bar` bringen ihre Farben jetzt
-  selbst mit, aus `--sumi-seq-*` bzw. `--sumi-accent`/`--sumi-sunken`).
-  Farben stammen aus der validierten Referenzpalette des dataviz-Skills —
-  dort validieren. **Theme-aware by Parameter, nicht durch
-  `prefers-color-scheme` beim Modul-Load** (#6): `levelColors(dark)`,
-  `levelColor(level, dark)` — die Komponente injiziert `SumiTheme`
-  (`sumi-ui/core`) und reicht `theme.isDark()` durch, damit ein
-  Theme-Wechsel zur Laufzeit (nicht nur beim Neuladen) sofort neu rendert.
+  theme-aware per CSS `light-dark()` ohne JS) — die alte Konfidenz-Skala
+  (`rampStep`/`rampSteps`) ist seit #8 weg, die restliche ordinale Level-Skala
+  (`ramp.ts`, zuletzt nur noch von `dictionaries.component.ts` gebraucht)
+  ist mit #9 ebenfalls entfernt. Zeigt bei einem fehlgeschlagenen initialen
+  `/api/stats` ein `sumi-error-state` (T6, #9) statt der Kacheln, siehe die
+  Fehlerseite unten.
+- `dictionaries.component.ts`/`.html`/`.css` (#9) — Tab „Dictionaries": pro
+  Wörterbuch eine `sumi-card` (`[sumiCardHeader]` mit Name + `sumi-badge`
+  built-in/uploaded, „N words" als Hint), Level-Verteilung als
+  `sumi-segmented-bar` (`[legend]="true"`, Farben kommen aus der
+  Bibliothek — keine eigene ordinale Skala mehr, `ramp.ts` ist mit #9
+  entfernt),
+  Fakten-Liste (Wortlänge Ø + Min–Max, Rating-Spanne, geübt, Erfolgsquote),
+  Export-Link als `<a sumiButton variant="ghost">`, bei Uploads
+  zweistufiges Löschen (`sumiButton variant="danger"`) + Upload-Karte
+  (verstecktes `<input type="file">`, `sumiButton`/`sumiInput` sonst
+  überall, Name aus dem Dateinamen vorbelegt, Fehler des Backends werden
+  pro Eintrag angezeigt; Template-Download als `<a sumiButton
+  variant="ghost" download>`) + Wort-Browser-Karte (Filter als
+  `sumiSelect`/`sumiInput type="search"`, 250 ms entprellt,
+  `sumi-data-table` + `sumiTableCell` fürs Wort mit `lang="ja"`, Pager mit
+  `sumiButton variant="ghost"`, kein Treffer → `sumi-empty-state`
+  "No matches"/`companion="koi"`, T3). Zeigt bei einem fehlgeschlagenen
+  initialen `/api/dictionaries` ein `sumi-error-state` (T6) statt aller
+  Karten. In `<sumi-page title="Dictionaries">`.
+- `settings.component.ts`/`.html`/`.css` (#9) — Zeitbudget-Karte (zwei
+  `sumiSlider`s, Live-Vorschau an drei echten Wörtern, „Saved"/Revert/
+  „Back to defaults" als `sumiButton`), Reset-Karte (`class="danger"` wie im
+  Pilot, dreistufiger Reset — strenger als der Pilot: Stufe 3 verlangt die
+  Eingabe von `RESET` in ein `sumiInput`, nicht nur eine zweite
+  Bestätigung) und eine unveränderte „About this app"-Karte. Zeigt bei
+  einem fehlgeschlagenen initialen `/api/settings` ein `sumi-error-state`
+  (T6) statt aller drei Karten. In `<sumi-page title="Settings">`.
+- **Fehlerseite (T6, #9)**: `sumi-error-state` (`title="Can't reach the
+  server"`, `companion="koi"`, `pattern="none"` auf Seiten mit einem
+  `sumi-page title`, da die Titel-Seite dort schon ihr eigenes Musterband
+  zeigt) ersetzt den Seiteninhalt, wenn der **initiale** Ladevorgang
+  fehlschlägt: Stats (`/api/stats`), Dictionaries (`/api/dictionaries`),
+  Settings (`/api/settings`), Practice (das erste Wort einer Session,
+  `/api/word/next` — die Gate bleibt dabei der Einstiegspunkt: ein
+  fehlgeschlagener erster Request setzt den Zustand zurück auf `idle` und
+  zeigt dort die Fehlerseite statt der Gate; ein Request für ein *weiteres*
+  Wort mitten in der Session schlägt dagegen weiterhin stumm fehl wie
+  bisher). Jede Seite trägt dafür ein eigenes `failed`/`loadFailed`-Signal
+  nach demselben Muster wie der Pilot (`stats`/`words`-Komponenten dort):
+  `retry()` setzt das Signal zurück und lädt neu, der `sumiErrorAction`-
+  Button ("Try again") ruft `retry()`. Ladezustände (das "Loading…") bleiben
+  bewusst ohne Tusche — zu kurzlebig.
 - Light/Dark/System kommt aus Sumi UIs Theme-Toggle (`SumiTheme`, Shell-Header,
   `localStorage['sumi-theme']`), nicht mehr aus einer eigenen
   `prefers-color-scheme`-Media-Query. Farbtokens kommen vollständig aus Sumi
   UIs `--sumi-*` (siehe `styles.scss`/`sumi-ui/projects/sumi-ui/styles/_tokens.scss`)
   — seit #8 gibt es **keine eigenen App-Tokens mehr** (`src/styles/app-tokens.css`
   mit `--series-1`/`--series-1-track` fürs handgebaute Sparkline/Meter ist
-  mit der Migration auf `sumi-sparkline`/`sumi-segmented-bar` entfallen,
-  `styles.scss`s `@use` entsprechend verschlankt).
+  mit der Migration auf `sumi-sparkline`/`sumi-segmented-bar` entfallen).
+  Seit #9 ist `styles.scss` nur noch das `@use` von Sumi UI selbst — der
+  temporäre `button, input, select, textarea { font: inherit; }`-Block für
+  die zuletzt noch nativen Controls in Dictionaries/Settings ist weg, weil
+  jetzt jedes Steuerelement im Frontend eine Sumi-Direktive trägt (einzige
+  Ausnahme: der versteckte `<input type="file">` fürs Dictionary-Upload,
+  der nie eigenes Styling bekommt). Keine Komponente restyled Buttons,
+  Inputs, Selects, Tabellen oder Cards mehr selbst — eigenes CSS bleibt auf
+  Layout (Flex/Grid-Lücken, eigene Markup-Elemente wie `.facts`/`.examples`)
+  beschränkt.
 
 ## Entwicklung
 
@@ -305,9 +330,13 @@ docker compose up --build -d
 Der Großteil der Tests liegt im Backend. Das Frontend hat seit dem
 Angular-22-Upgrade (Issue #4) einen schlanken `ng test` über
 `@angular/build:unit-test` (Vitest/jsdom, Tooling an `kanji-trainer`
-angeglichen) — bewusst nur für reine Funktionen (`ramp.spec.ts`), keine
-Komponenten-Tests: bei einer Single-User-App bliebe das UI-Verifikationsmuster
-unten der eigentliche Prüfpfad.
+angeglichen) — bewusst nur für reine Funktionen, keine Komponenten-Tests:
+bei einer Single-User-App bliebe das UI-Verifikationsmuster unten der
+eigentliche Prüfpfad. Seit #9 ist das `stats-math.spec.ts` (Aufbau der drei
+Kana-Matrizen: Lücken nur, wo es kein Kana gibt, Zelle → Kana, Reihenfolge
+der erweiterten Kana); `ramp.spec.ts` ist mit `ramp.ts` weggefallen.
+Achtung: ohne eine einzige `*.spec.ts` bricht `ng test` mit "No tests
+found" ab, statt grün mit null Tests durchzulaufen.
 
 - `tests/conftest.py` — eine **session-weite Wegwerf-Postgres** via
   testcontainers (`postgres:17-alpine`); jeder Test startet mit leerem
